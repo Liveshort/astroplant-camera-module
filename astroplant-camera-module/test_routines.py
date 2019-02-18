@@ -1,16 +1,15 @@
 import asyncio
 import pigpio
 
-from picamera import PiCamera
 from visible_routines import *
 from camera_commands import *
 from debug_print import *
+from pi_cam_noir_v21 import *
 
 def growth_light_control_dummy(gl_state):
     d_print("New growth light state: {}".format(gl_state))
 
 if __name__ == "__main__":
-    camera = PiCamera()
     pi = pigpio.pi()
     light_pins = {
         "white": 4,
@@ -18,9 +17,6 @@ if __name__ == "__main__":
     }
     gwl = growth_light_control_dummy
 
-    camera.rotation = 180
-    camera.resolution = (800,600)
+    cam = PI_CAM_NOIR_V21(pi = pi, light_pins = light_pins, growth_light_control = gwl)
 
-    vis = VISIBLE_ROUTINES(pi = pi, camera = camera, light_pins = light_pins, growth_light_control = gwl)
-
-    print(vis.photo_vis(CameraCommandType.REGULAR_PHOTO))
+    print(cam.make_photo_vis(CameraCommandType.REGULAR_PHOTO))

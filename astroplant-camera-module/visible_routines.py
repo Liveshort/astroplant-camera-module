@@ -4,7 +4,6 @@ import datetime
 import os
 import time
 
-from camera_commands import *
 from growth_light_control import *
 from debug_print import *
 from capture import *
@@ -24,19 +23,6 @@ class VISIBLE_ROUTINES(object):
         self.camera = camera
         self.light_pins = light_pins
         self.growth_light_control = growth_light_control
-
-    def photo_vis(self, command):
-        """
-        Make a photo in the visible spectrum.
-
-        :param command: determine whether to take a normal photo or the leaf mask
-        :return: path to the photo taken
-        """
-
-        if command == CameraCommandType.REGULAR_PHOTO:
-            return self.regular_photo()
-        else:
-            return self.leaf_mask()
 
     def regular_photo(self):
         """
