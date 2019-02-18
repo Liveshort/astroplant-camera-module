@@ -2,9 +2,12 @@ import asyncio
 import pigpio
 import datetime
 import os
+import time
 
-from . import camera_commands
-from . import debug_print
+from camera_commands import *
+from growth_light_control import *
+from debug_print import *
+from capture import *
 
 class VISIBLE_ROUTINES(object):
     def __init__(self, *args, pi, camera, light_pins, growth_light_control, **kwargs):
@@ -31,9 +34,9 @@ class VISIBLE_ROUTINES(object):
         """
 
         if command == CameraCommandType.REGULAR_PHOTO:
-            return regular_photo()
+            return self.regular_photo()
         else:
-            return leaf_mask()
+            return self.leaf_mask()
 
     def regular_photo(self):
         """
@@ -44,7 +47,7 @@ class VISIBLE_ROUTINES(object):
 
         # turn off the growth lighting
         d_print("Turning off growth lighting...")
-        self.growth_light_control(GROWTH_LIGHT_CONTROL.OFF)
+        self.growth_light_control(GrowthLightControl.OFF)
 
         # turn on the white light
         d_print("Turning on white camera lighting...")
@@ -52,14 +55,9 @@ class VISIBLE_ROUTINES(object):
         time.sleep(1)
 
         # take photo
-        d_print("Warming up camera sensor...")
-        self.camera.start_preview()
-        time.sleep(2)
-        d_print("Taking photo...")
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), curr_time)
-        self.camera.capture(path_to_img)
-        self.camera.stop_preview()
+        capture_image(self.camera, path_to_img)
 
         # turn off the camera lights
         d_print("Turning off white camera lighting...")
@@ -67,7 +65,7 @@ class VISIBLE_ROUTINES(object):
 
         # turn on the growth lighting
         d_print("Turning on growth lighting...")
-        self.growth_light_control(GROWTH_LIGHT_CONTROL.ON)
+        self.growth_light_control(GrowthLightControl.ON)
 
         return(path_to_img)
 
