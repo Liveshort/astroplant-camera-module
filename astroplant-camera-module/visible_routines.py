@@ -6,10 +6,9 @@ import time
 
 from growth_light_control import *
 from debug_print import *
-from capture import *
 
 class VISIBLE_ROUTINES(object):
-    def __init__(self, *args, pi, camera, light_pins, growth_light_control, **kwargs):
+    def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
         """
         Initialize an object that contains the visible routines.
         Link the pi and gpio pins necessary and provide a function that controls the growth lighting.
@@ -20,9 +19,11 @@ class VISIBLE_ROUTINES(object):
         """
 
         self.pi = pi
-        self.camera = camera
         self.light_pins = light_pins
         self.growth_light_control = growth_light_control
+
+    def set_camera(self, camera):
+        self.camera = camera
 
     def regular_photo(self):
         """
@@ -43,7 +44,7 @@ class VISIBLE_ROUTINES(object):
         # take photo
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), curr_time)
-        capture_image(self.camera, path_to_img)
+        self.camera.capture_image(path_to_img)
 
         # turn off the camera lights
         d_print("Turning off white camera lighting...")

@@ -8,15 +8,12 @@ import asyncio
 import pigpio
 
 from picamera import PiCamera
+from camera import Camera
 from visible_routines import *
 from camera_commands import *
 from debug_print import *
 
-class PI_CAM_NOIR_V21(object):
-
-    VIS_CAPABLE = True
-    NIR_CAPABLE = True
-
+class PI_CAM_NOIR_V21(Camera):
     def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
         """
         Initialize an object that contains the visible routines.
@@ -27,36 +24,24 @@ class PI_CAM_NOIR_V21(object):
         :param growth_light_control: function that can turn the growth lighting on or off
         """
 
-        self.pi = pi
+        # set up the camera super class
+        super().__init__(pi = pi, light_pins = light_pins, growth_light_control = growth_light_control)
+
+        # set up the camera settings specific to this camera
+        self.VIS_CAPABLE = True
+        self.NIR_CAPABLE = True
+
         self.camera = PiCamera()
-        self.light_pins = light_pins
-        self.growth_light_control = growth_light_control
-
-        self.vis = VISIBLE_ROUTINES(pi = self.pi, camera = self.camera, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
-
         self.camera.rotation = 180
         self.camera.resolution = (800,600)
 
-    def make_photo_vis(self, command):
-        if command == CameraCommandType.REGULAR_PHOTO:
-            return self.vis.regular_photo()
-        else:
-            return self.vis.leaf_mask()
+        # link the camera to the visible routine
+        self.vis.set_camera(self)
 
-
-    def sanity_check(self):
-        if VIS_CAPABLE == True:
-            try:
-                print("White light pin: {}".format(self.light_pins["white"]))
-            except KeyError:
-                print("ERROR, no white light pin defined in dict light_pins...")
-
-            try:
-                print("Red light pin: {}".format(self.light_pins["red"]))
-            except KeyError:
-                print("ERROR, no red light pin defined in dict light_pins...")
-
-            try:
-                print("Green light pin: {}".format(self.light_pins["red"]))
-            except KeyError:
-                print("ERROR, no green light pin defined in dict light_pins...")
+    def capture_image(self, path_to_img):
+        d_print("Warming up camera sensor...")
+        self.camera.start_preview()
+        time.sleep(2)
+        d_print("Taking photo...")
+        self.camera.capture(path_to_img)
+        self.camera.stop_preview()
