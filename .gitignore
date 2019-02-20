@@ -1,0 +1,8 @@
+# Build artifacts
+*.py[cod]
+
+# ignore python cache
+__pycache__/
+
+# ignore images produced by clients
+img/
