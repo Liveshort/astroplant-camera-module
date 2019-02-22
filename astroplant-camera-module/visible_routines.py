@@ -43,7 +43,7 @@ class VISIBLE_ROUTINES(object):
 
         # take photo
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), curr_time)
+        path_to_img = "{}/img/{}.tif".format(os.getcwd(), "test")
         self.camera.capture_image(path_to_img)
 
         # turn off the camera lights
