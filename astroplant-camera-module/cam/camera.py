@@ -31,7 +31,7 @@ class Camera(object):
 
         self.vis = VISIBLE_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
 
-    def make_photo_vis(self, command):
+    def make_photo_vis(self, command: CameraCommandType):
         if command == CameraCommandType.REGULAR_PHOTO:
             return self.vis.regular_photo()
         else:

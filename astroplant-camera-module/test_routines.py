@@ -1,8 +1,8 @@
 import asyncio
 import pigpio
 
-from camera_commands import *
-from debug_print import *
+from cam.camera_commands import *
+from cam.debug_print import *
 from pi_cam_noir_v21 import *
 
 def growth_light_control_dummy(gl_state):

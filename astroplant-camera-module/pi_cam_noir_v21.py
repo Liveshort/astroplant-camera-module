@@ -13,10 +13,10 @@ import numpy as np
 from fractions import Fraction
 from imageio import imwrite
 
-from camera import Camera
-from visible_routines import *
-from camera_commands import *
-from debug_print import *
+from cam.camera import *
+from cam.visible_routines import *
+from cam.camera_commands import *
+from cam.debug_print import *
 
 class PI_CAM_NOIR_V21(Camera):
     def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
