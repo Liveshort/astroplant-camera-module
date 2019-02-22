@@ -5,4 +5,4 @@
 __pycache__/
 
 # ignore images produced by clients
-img/
+astroplant-camera-module/img/*
