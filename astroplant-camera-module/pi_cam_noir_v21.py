@@ -44,7 +44,9 @@ class PI_CAM_NOIR_V21(Camera):
         self.exposure_mode = "off"
         self.exposure_compensation = -24
 
-        # pass self to the visible routine
+        # set up visible visible routines
+        self.vis = VISIBLE_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
+        # pass self (a camera object) to the visible routine
         self.vis.set_camera(self)
 
     def capture_image(self, path_to_img):

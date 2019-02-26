@@ -7,9 +7,8 @@ import time
 import asyncio
 import abc
 
-from visible_routines import *
-from camera_commands import *
-from debug_print import *
+from .camera_commands import *
+from .debug_print import *
 
 class Camera(object):
     def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
@@ -28,8 +27,6 @@ class Camera(object):
         self.pi = pi
         self.light_pins = light_pins
         self.growth_light_control = growth_light_control
-
-        self.vis = VISIBLE_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
 
     def make_photo_vis(self, command: CameraCommandType):
         if command == CameraCommandType.REGULAR_PHOTO:

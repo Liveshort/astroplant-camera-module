@@ -4,8 +4,8 @@ import datetime
 import os
 import time
 
-from growth_light_control import *
-from debug_print import *
+from .growth_light_control import *
+from .debug_print import *
 
 class VISIBLE_ROUTINES(object):
     def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
