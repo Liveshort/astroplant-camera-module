@@ -6,7 +6,7 @@ from cam.debug_print import *
 from pi_cam_noir_v21 import *
 
 def growth_light_control_dummy(gl_state):
-    d_print("New growth light state: {}".format(gl_state))
+    d_print("New growth light state: {}".format(gl_state), 1)
 
 if __name__ == "__main__":
     pi = pigpio.pi()
@@ -18,6 +18,8 @@ if __name__ == "__main__":
 
     cam = PI_CAM_NOIR_V21(pi = pi, light_pins = light_pins, growth_light_control = gwl)
 
-    print(cam.make_photo_vis(CameraCommandType.REGULAR_PHOTO))
+    print(cam.do(CameraCommandType.REGULAR_PHOTO))
+    #cam.calibrate()
 
+    cam.state()
     cam.sanity_check()

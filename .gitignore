@@ -4,5 +4,7 @@
 # ignore python cache
 __pycache__/
 
-# ignore images produced by clients
+# ignore images
 astroplant-camera-module/img/*
+# ...but keep the folder
+!astroplant-camera-module/img/.gitkeep

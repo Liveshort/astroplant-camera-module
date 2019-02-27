@@ -33,11 +33,11 @@ class VISIBLE_ROUTINES(object):
         """
 
         # turn off the growth lighting
-        d_print("Turning off growth lighting...")
+        d_print("Turning off growth lighting...", 1)
         self.growth_light_control(GrowthLightControl.OFF)
 
         # turn on the white light
-        d_print("Turning on white camera lighting...")
+        d_print("Turning on white camera lighting...", 1)
         self.pi.write(self.light_pins["white"], 1)
         time.sleep(1)
 
@@ -47,11 +47,11 @@ class VISIBLE_ROUTINES(object):
         self.camera.capture_image(path_to_img)
 
         # turn off the camera lights
-        d_print("Turning off white camera lighting...")
+        d_print("Turning off white camera lighting...", 1)
         self.pi.write(self.light_pins["white"], 0)
 
         # turn on the growth lighting
-        d_print("Turning on growth lighting...")
+        d_print("Turning on growth lighting...", 1)
         self.growth_light_control(GrowthLightControl.ON)
 
         return(path_to_img)
