@@ -22,7 +22,7 @@ class CameraCommandType(object):
     PLANT_SIZE_MAJOR = "PLANT_SIZE_MAJOR"
     # plant size along minor axis
     PLANT_SIZE_MINOR = "PLANT_SIZE_MINOR"
-    # plant size along minor axis
+    # circumference of the bounding box of the plant
     PLANT_SIZE_BOUNDING_BOX = "PLANT_SIZE_BOUNDING_BOX"
 
     # calibrate the camera and the lights

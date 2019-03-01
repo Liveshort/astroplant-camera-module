@@ -32,15 +32,16 @@ class Camera(object):
         self.pi = pi
         self.light_pins = light_pins
         self.growth_light_control = growth_light_control
-        self.camera_cfg = dict()
 
     def do(self, command: CameraCommandType):
-        if command == CameraCommandType.REGULAR_PHOTO and self.VIS_CAPABLE:
+        if command == CameraCommandType.REGULAR_PHOTO and self.VIS_CAPABLE and self.CALIBRATED:
             return self.vis.regular_photo()
-        elif command == CameraCommandType.LEAF_MASK and self.VIS_CAPABLE:
+        elif command == CameraCommandType.LEAF_MASK and self.NIR_CAPABLE and self.CALIBRATED:
             return self.vis.leaf_mask()
+        elif command == CameraCommandType.CALIBRATE:
+            self.calibrate()
         else:
-            d_print("Camera does not support command '{}', returning empty...", 3)
+            d_print("Camera does not support command '{}', is it calibrated? ({}), returning empty...".format(command, self.CALIBRATED), 3)
             return ""
 
     @abc.abstractmethod
@@ -56,15 +57,28 @@ class Camera(object):
         Calibrates the camera and the light sources.
         """
 
+        # set up the camera config dict
+        #self.camera_cfg = dict()
+        #self.camera_cfg["cam_id"] = self.CAM_ID
+        #self.camera_cfg["rotation"] = 0
+
+        print("Starting calibration...")
+
         # turn off the growth lighting
         d_print("Turning off growth lighting...", 1)
         self.growth_light_control(GrowthLightControl.OFF)
 
         if self.VIS_CAPABLE:
-            self.calibrate_crop()
+            #self.calibrate_crop()
             self.calibrate_white()
         if self.NIR_CAPABLE:
             self.calibrate_nir()
+
+        # write the configuration to file
+        with open("{}/cfg/cam_config.json".format(os.getcwd()), 'w') as f:
+            json.dump(self.camera_cfg, f)
+
+        self.CALIBRATED = True
 
     def calibrate_crop(self):
         # turn on the white light
@@ -75,9 +89,9 @@ class Camera(object):
         # ask user to put something pointing somewhere in the kit
         print("Please put something which you can identify pointing somewhere inside the kit (example: pen) and close the kit.")
         print("Type anything to continue.")
-        rsp = input("Input:")
+        rsp = input("Input: ")
 
-        # take photo in auto
+        # take photo in auto mode
         print("Taking auto photo...")
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "auto")
         self.capture_image_auto(path_to_img)
@@ -90,7 +104,7 @@ class Camera(object):
         print("    90:  opening is on the right side (image will be rotated clockwise)")
         print("    180: opening is on the top side (image will be flipped)")
         print("    270: opening is on the left side (image will be rotated counterclockwise)")
-        self.camera_cfg["rotation"] = input("Input: ")
+        self.camera_cfg["rotation"] = int(input("Input: "))
 
         # make confirmation photo
         print("Taking auto photo...")
@@ -100,16 +114,28 @@ class Camera(object):
 
         print("Now we would like to crop the photo to the size of the bottom plate of the kit.")
         print("Open up your favorite image editor (paint should suffice) and find the pixel values (top left is (0,0)) for the following:")
-        self.camera_cfg["x_min"] = input("(x) position of the left border of the bottom plate:   ")
-        self.camera_cfg["x_max"] = input("(x) position of the right border of the bottom plate:  ")
-        self.camera_cfg["y_min"] = input("(y) position of the top border of the bottom plate:    ")
-        self.camera_cfg["y_max"] = input("(y) position of the bottom border of the bottom plate: ")
+        self.camera_cfg["x_min"] = int(input("(x) position of the left border of the bottom plate:   "))
+        self.camera_cfg["x_max"] = int(input("(x) position of the right border of the bottom plate:  "))
+        self.camera_cfg["y_min"] = int(input("(y) position of the top border of the bottom plate:    "))
+        self.camera_cfg["y_max"] = int(input("(y) position of the bottom border of the bottom plate: "))
+
+        print("\nCrop configuration complete.")
 
     def calibrate_white(self):
         # turn on the white light
         d_print("Turning on white camera lighting...", 1)
         self.pi.write(self.light_pins["white"], 1)
         time.sleep(1)
+
+        # ask user to put something white and diffuse in the kit
+        print("Please remove the plant container and place a white diffuse surface on the bottom plate of the kit and close the kit.")
+        print("Type anything to continue.")
+        rsp = input("Input: ")
+
+        # get the white intensity mask
+        path_to_cfg = "{}/cfg/{}.its".format(os.getcwd(), "white")
+        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "white_mask")
+        self.capture_intensity_mask(path_to_img, path_to_cfg)
 
     def calibrate_nir(self):
         raise NotImplementedError()
