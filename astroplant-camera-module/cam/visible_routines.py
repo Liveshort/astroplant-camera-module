@@ -38,7 +38,7 @@ class VISIBLE_ROUTINES(object):
 
         # turn on the white light
         d_print("Turning on white camera lighting...", 1)
-        self.pi.write(self.light_pins["white"], 1)
+        self.pi.write(self.light_pins["spot-white"], 1)
         time.sleep(1)
 
         # take photo
@@ -48,7 +48,7 @@ class VISIBLE_ROUTINES(object):
 
         # turn off the camera lights
         d_print("Turning off white camera lighting...", 1)
-        self.pi.write(self.light_pins["white"], 0)
+        self.pi.write(self.light_pins["spot-white"], 0)
 
         # turn on the growth lighting
         d_print("Turning on growth lighting...", 1)

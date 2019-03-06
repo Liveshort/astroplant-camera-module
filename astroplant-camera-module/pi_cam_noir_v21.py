@@ -55,8 +55,8 @@ class PI_CAM_NOIR_V21(Camera):
             self.CALIBRATED = False
 
         self.resolution = (1216,1216)
-        self.framerate = Fraction(4, 3)
-        self.shutter_speed = 750000
+        self.framerate = Fraction(5, 1)
+        self.shutter_speed = 200000
         self.iso = 200
         self.exposure_mode = "off"
         self.exposure_compensation = 0
@@ -81,8 +81,8 @@ class PI_CAM_NOIR_V21(Camera):
             # record camera data to array and scale up a numpy array
             sensor.exposure_mode = "night"
             sensor.rotation = self.camera_cfg["rotation"]
-            sensor.framerate = Fraction(2, 1)
-            sensor.shutter_speed = 500000
+            sensor.framerate = Fraction(4, 1)
+            sensor.shutter_speed = 250000
             time.sleep(20)
             print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain))
             d_print("Taking photo...", 1)
@@ -120,13 +120,16 @@ class PI_CAM_NOIR_V21(Camera):
 
             # record camera data to array and scale up a numpy array
             d_print("Stacking images...", 1)
-            rgb = np.zeros((1216,1216,3), dtype=np.uint16)
+            rgb = np.zeros((1216,1216,3), dtype=np.uint8)
             with picamera.array.PiRGBArray(sensor) as output:
-                for i in range(10):
+                for i in range(1):
                     output.truncate(0)
                     sensor.capture(output, 'rgb')
                     d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                    rgb += 16*output.array
+                    rgb += output.array
+
+                with open("tmp_photo.np", 'wb') as f:
+                    np.save(f, rgb)
 
             # crop the sensor readout
             rgb = rgb[self.camera_cfg["y_min"]:self.camera_cfg["y_max"], self.camera_cfg["x_min"]:self.camera_cfg["x_max"], :]
@@ -134,15 +137,15 @@ class PI_CAM_NOIR_V21(Camera):
             # apply mask
             with open("{}/cfg/{}.its".format(os.getcwd(), "white"), 'rb') as f:
                 mask = np.load(f)
-                mask = np.expand_dims(mask, axis=2)
-                rgb = np.multiply(rgb, np.tile(mask, (1,1,3)))
-                rgb = np.uint16(np.round(rgb))
+                #mask = np.expand_dims(mask, axis=2)
+                #rgb = np.multiply(rgb, np.tile(mask, (1,1,3)))
+                rgb = np.uint8(np.round(255*np.divide(rgb, mask)))
 
             # determine maximum and scale to full 16 bit scale
-            d_print("Scaling result...", 1)
-            max = np.amax(rgb)
-            d_print("rgb max = {}".format(max), 1)
-            rgb *= pow(2,16)//max - 1
+            #d_print("Scaling result...", 1)
+            #max = np.amax(rgb)
+            #d_print("rgb max = {}".format(max), 1)
+            #rgb *= pow(2,8)//max - 1
 
             # write image to file using imageio's imwrite
             d_print("Writing to file...", 1)
@@ -194,24 +197,17 @@ class PI_CAM_NOIR_V21(Camera):
             # crop the sensor readout
             rgb = rgb[self.camera_cfg["y_min"]:self.camera_cfg["y_max"], self.camera_cfg["x_min"]:self.camera_cfg["x_max"], :]
 
-            # grayscale the image
-            its = np.dot(rgb[...,:3], [0.299, 0.587, 0.114])
-
-            # determine maximum and scale to full 16 bit scale
-            d_print("Scaling/blurring/inverting result...", 1)
-            its /= np.amax(its)
-            its = gaussian_filter(its, sigma=7)
-            its = np.divide(np.ones_like(its), its)
-            its[its > 5] = 5
-            its /= np.amax(its)
+            # prevent division by zero and scale to 8 bit
+            #rgb = np.floor_divide(rgb, 20)
+            rgb[rgb == 0] = 1
+            #rgb = np.uint8(rgb)
 
             with open(path_to_cfg, 'wb') as f:
-                np.save(f, its)
+                np.save(f, rgb)
 
             # write image to file using imageio's imwrite
             d_print("Writing to file...", 1)
-            its = 255*its
-            imwrite(path_to_img, its.astype(np.uint8))
+            imwrite(path_to_img, rgb.astype(np.uint8))
 
             #sensor.stop_preview()
 

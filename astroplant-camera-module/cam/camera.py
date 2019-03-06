@@ -83,7 +83,7 @@ class Camera(object):
     def calibrate_crop(self):
         # turn on the white light
         d_print("Turning on white camera lighting...", 1)
-        self.pi.write(self.light_pins["white"], 1)
+        self.pi.write(self.light_pins["spot-white"], 1)
         time.sleep(1)
 
         # ask user to put something pointing somewhere in the kit
@@ -124,7 +124,7 @@ class Camera(object):
     def calibrate_white(self):
         # turn on the white light
         d_print("Turning on white camera lighting...", 1)
-        self.pi.write(self.light_pins["white"], 1)
+        self.pi.write(self.light_pins["spot-white"], 1)
         time.sleep(1)
 
         # ask user to put something white and diffuse in the kit
@@ -166,7 +166,7 @@ class Camera(object):
         print("Basic camera capabilities:\n    VIS_CAPABLE: {}\n    NIR_CAPABLE: {}".format(self.VIS_CAPABLE, self.NIR_CAPABLE))
         if self.VIS_CAPABLE == True:
             try:
-                print("White light pin: {}".format(self.light_pins["white"]))
+                print("White light pin: {}".format(self.light_pins["spot-white"]))
             except KeyError:
                 print("ERROR, no white light pin defined in dict light_pins...")
 
