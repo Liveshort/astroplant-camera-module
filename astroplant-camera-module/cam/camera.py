@@ -128,7 +128,7 @@ class Camera(object):
         time.sleep(1)
 
         # ask user to put something white and diffuse in the kit
-        print("Please remove the plant container and place a white diffuse surface on the bottom plate of the kit and close the kit.")
+        print("Please remove the plant container and place a white diffuse surface on the bottom plate of the kit and place a small object on top of the white surface and close the kit.")
         print("Type anything to continue.")
         rsp = input("Input: ")
 

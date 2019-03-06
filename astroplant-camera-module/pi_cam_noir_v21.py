@@ -9,6 +9,7 @@ import pigpio
 import picamera.array
 import picamera
 import os
+import cv2
 import numpy as np
 
 from fractions import Fraction
@@ -122,24 +123,27 @@ class PI_CAM_NOIR_V21(Camera):
             d_print("Stacking images...", 1)
             rgb = np.zeros((1216,1216,3), dtype=np.uint8)
             with picamera.array.PiRGBArray(sensor) as output:
-                for i in range(1):
-                    output.truncate(0)
-                    sensor.capture(output, 'rgb')
-                    d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                    rgb += output.array
+                output.truncate(0)
+                sensor.capture(output, 'rgb')
+                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                rgb += output.array
 
                 with open("tmp_photo.np", 'wb') as f:
                     np.save(f, rgb)
 
             # crop the sensor readout
             rgb = rgb[self.camera_cfg["y_min"]:self.camera_cfg["y_max"], self.camera_cfg["x_min"]:self.camera_cfg["x_max"], :]
+            hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
 
             # apply mask
             with open("{}/cfg/{}.its".format(os.getcwd(), "white"), 'rb') as f:
                 mask = np.load(f)
                 #mask = np.expand_dims(mask, axis=2)
                 #rgb = np.multiply(rgb, np.tile(mask, (1,1,3)))
-                rgb = np.uint8(np.round(255*np.divide(rgb, mask)))
+                #rgb = np.uint8(np.round(255*np.divide(rgb, mask)))
+                hsv[:,:,2] = np.uint8(np.round(128*np.divide(hsv[:,:,2], mask[:,:,2])))
+
+            rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
 
             # determine maximum and scale to full 16 bit scale
             #d_print("Scaling result...", 1)
@@ -184,6 +188,10 @@ class PI_CAM_NOIR_V21(Camera):
 
             #sensor.start_preview()
 
+            print("Now please remove the small object from the kit and close it up again.")
+            print("Type anything to continue.")
+            rsp = input("Input: ")
+
             # record camera data to array and scale up a numpy array
             d_print("Stacking images...", 1)
             rgb = np.zeros((1216,1216,3), dtype=np.uint16)
@@ -198,12 +206,18 @@ class PI_CAM_NOIR_V21(Camera):
             rgb = rgb[self.camera_cfg["y_min"]:self.camera_cfg["y_max"], self.camera_cfg["x_min"]:self.camera_cfg["x_max"], :]
 
             # prevent division by zero and scale to 8 bit
-            #rgb = np.floor_divide(rgb, 20)
+            rgb = np.floor_divide(rgb, 10)
+            rgb = np.uint8(rgb)
+
+            hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+            v = hsv[:,:,2]
+            v[v < 40] = 40
+            hsv[:,:,2] = v
+
             rgb[rgb == 0] = 1
-            #rgb = np.uint8(rgb)
 
             with open(path_to_cfg, 'wb') as f:
-                np.save(f, rgb)
+                np.save(f, hsv)
 
             # write image to file using imageio's imwrite
             d_print("Writing to file...", 1)
