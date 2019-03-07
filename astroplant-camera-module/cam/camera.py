@@ -36,6 +36,8 @@ class Camera(object):
     def do(self, command: CameraCommandType):
         if command == CameraCommandType.REGULAR_PHOTO and self.VIS_CAPABLE and self.CALIBRATED:
             return self.vis.regular_photo()
+        elif command == CameraCommandType.DEPTH_MAP and self.VIS_CAPABLE and self.CALIBRATED:
+            return self.vis.pseudo_depth_map()
         elif command == CameraCommandType.LEAF_MASK and self.NIR_CAPABLE and self.CALIBRATED:
             return self.vis.leaf_mask()
         elif command == CameraCommandType.CALIBRATE:
@@ -69,76 +71,16 @@ class Camera(object):
         self.growth_light_control(GrowthLightControl.OFF)
 
         if self.VIS_CAPABLE:
-            #self.calibrate_crop()
-            self.calibrate_white()
+            #self.cal.calibrate_crop()
+            self.cal.calibrate_white()
         if self.NIR_CAPABLE:
-            self.calibrate_nir()
+            self.cal.calibrate_nir()
 
         # write the configuration to file
         with open("{}/cfg/cam_config.json".format(os.getcwd()), 'w') as f:
             json.dump(self.camera_cfg, f)
 
         self.CALIBRATED = True
-
-    def calibrate_crop(self):
-        # turn on the white light
-        d_print("Turning on white camera lighting...", 1)
-        self.pi.write(self.light_pins["spot-white"], 1)
-        time.sleep(1)
-
-        # ask user to put something pointing somewhere in the kit
-        print("Please put something which you can identify pointing somewhere inside the kit (example: pen) and close the kit.")
-        print("Type anything to continue.")
-        rsp = input("Input: ")
-
-        # take photo in auto mode
-        print("Taking auto photo...")
-        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "auto")
-        self.capture_image_auto(path_to_img)
-        print("An auto photo was taken and saved at {}.\n".format(path_to_img))
-
-        # ask user for correct orientation
-        print("For ease of use, we would like the photos to be oriented with the opening of the kit at the bottomside.")
-        print("Please select the correct orientation for your camera:")
-        print("    0:   correctly oriented")
-        print("    90:  opening is on the right side (image will be rotated clockwise)")
-        print("    180: opening is on the top side (image will be flipped)")
-        print("    270: opening is on the left side (image will be rotated counterclockwise)")
-        self.camera_cfg["rotation"] = int(input("Input: "))
-
-        # make confirmation photo
-        print("Taking auto photo...")
-        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "oriented")
-        self.capture_image_auto(path_to_img)
-        print("An automatic photo was taken and saved at {}.\n".format(path_to_img))
-
-        print("Now we would like to crop the photo to the size of the bottom plate of the kit.")
-        print("Open up your favorite image editor (paint should suffice) and find the pixel values (top left is (0,0)) for the following:")
-        self.camera_cfg["x_min"] = int(input("(x) position of the left border of the bottom plate:   "))
-        self.camera_cfg["x_max"] = int(input("(x) position of the right border of the bottom plate:  "))
-        self.camera_cfg["y_min"] = int(input("(y) position of the top border of the bottom plate:    "))
-        self.camera_cfg["y_max"] = int(input("(y) position of the bottom border of the bottom plate: "))
-
-        print("\nCrop configuration complete.")
-
-    def calibrate_white(self):
-        # turn on the white light
-        d_print("Turning on white camera lighting...", 1)
-        self.pi.write(self.light_pins["spot-white"], 1)
-        time.sleep(1)
-
-        # ask user to put something white and diffuse in the kit
-        print("Please remove the plant container and place a white diffuse surface on the bottom plate of the kit and place a small object on top of the white surface and close the kit.")
-        print("Type anything to continue.")
-        rsp = input("Input: ")
-
-        # get the white intensity mask
-        path_to_cfg = "{}/cfg/{}.its".format(os.getcwd(), "white")
-        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "white_mask")
-        self.capture_intensity_mask(path_to_img, path_to_cfg)
-
-    def calibrate_nir(self):
-        raise NotImplementedError()
 
     def state(self):
         """

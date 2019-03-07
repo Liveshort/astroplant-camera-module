@@ -17,6 +17,7 @@ from imageio import imwrite
 from scipy.ndimage.filters import gaussian_filter
 
 from cam.camera import *
+from cam.calibration_routines import *
 from cam.visible_routines import *
 from cam.camera_commands import *
 from cam.debug_print import *
@@ -62,7 +63,12 @@ class PI_CAM_NOIR_V21(Camera):
         self.exposure_mode = "off"
         self.exposure_compensation = 0
 
-        # set up visible visible routines
+        # set up calibration routines
+        self.cal = CALIBRATION_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
+        # pass self (a camera object) to the calibration routine
+        self.cal.set_camera(self)
+
+        # set up visible  routines
         self.vis = VISIBLE_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
         # pass self (a camera object) to the visible routine
         self.vis.set_camera(self)
@@ -82,9 +88,9 @@ class PI_CAM_NOIR_V21(Camera):
             # record camera data to array and scale up a numpy array
             sensor.exposure_mode = "night"
             sensor.rotation = self.camera_cfg["rotation"]
-            sensor.framerate = Fraction(4, 1)
-            sensor.shutter_speed = 250000
-            time.sleep(20)
+            sensor.framerate = Fraction(10, 1)
+            sensor.shutter_speed = 100000
+            time.sleep(10)
             print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain))
             d_print("Taking photo...", 1)
             sensor.capture(path_to_img)
@@ -93,14 +99,21 @@ class PI_CAM_NOIR_V21(Camera):
 
         return 0
 
-    def capture_image(self, path_to_img):
+    def capture(self, set_light, after_exposure_lock_callback):
         """
         Function that captures an image. Sets up the sensor and its settings,
-        takes a bunch of pictures, applies corrections and writes to file.
+        lets it settle and takes a picture, returns the array to the user.
 
-        :param path_to_img: string pointing to the path the img needs to be stored at
-        :return: 0 for success
+        :param set_light: function that when called with 0 as parameter turns off the appropriate lights
+            and when called with 1 as parameter turns it back on
+        :param after_exposure_lock_callback: function that is called after the exposure is locked, no
+            parameters, no return value
+        :return: 8 bit rgb array containing the image
         """
+
+        # turn on the light
+        set_light(1)
+        time.sleep(0.1)
 
         d_print("Warming up camera sensor...", 1)
 
@@ -112,64 +125,55 @@ class PI_CAM_NOIR_V21(Camera):
             sensor.shutter_speed = self.shutter_speed
             #sensor.iso = self.iso
             d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-            time.sleep(20)
+            time.sleep(10)
             sensor.exposure_mode = self.exposure_mode
-            sensor.exposure_compensation = self.exposure_compensation
             d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
 
-            #sensor.start_preview()
+            # do the after exposure lock callback, in case something needs to be performed here
+            after_exposure_lock_callback()
 
-            # record camera data to array and scale up a numpy array
-            d_print("Stacking images...", 1)
+            # record camera data to array, also get dark frame
             rgb = np.zeros((1216,1216,3), dtype=np.uint8)
+            dark = np.zeros((1216,1216,3), dtype=np.uint8)
             with picamera.array.PiRGBArray(sensor) as output:
+                # capture a lit frame
                 output.truncate(0)
                 sensor.capture(output, 'rgb')
                 d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                rgb += output.array
+                rgb = np.copy(output.array)
 
-                with open("tmp_photo.np", 'wb') as f:
-                    np.save(f, rgb)
+                # turn off the light
+                set_light(0)
+                time.sleep(1)
 
-            # crop the sensor readout
-            rgb = rgb[self.camera_cfg["y_min"]:self.camera_cfg["y_max"], self.camera_cfg["x_min"]:self.camera_cfg["x_max"], :]
-            hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
+                # also capture a dark frame
+                output.truncate(0)
+                sensor.capture(output, 'rgb')
+                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                dark = output.array
 
-            # apply mask
-            with open("{}/cfg/{}.its".format(os.getcwd(), "white"), 'rb') as f:
-                mask = np.load(f)
-                #mask = np.expand_dims(mask, axis=2)
-                #rgb = np.multiply(rgb, np.tile(mask, (1,1,3)))
-                #rgb = np.uint8(np.round(255*np.divide(rgb, mask)))
-                hsv[:,:,2] = np.uint8(np.round(128*np.divide(hsv[:,:,2], mask[:,:,2])))
-
-            rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
-
-            # determine maximum and scale to full 16 bit scale
-            #d_print("Scaling result...", 1)
-            #max = np.amax(rgb)
-            #d_print("rgb max = {}".format(max), 1)
-            #rgb *= pow(2,8)//max - 1
-
-            # write image to file using imageio's imwrite
-            d_print("Writing to file...", 1)
-            imwrite(path_to_img, rgb)
-
-            #sensor.stop_preview()
+            # perform dark frame subtraction
+            rgb -= dark
 
         d_print("Done.", 1)
 
-        return 0
+        return rgb
 
-    def capture_intensity_mask(self, path_to_img, path_to_cfg):
+    def capture_low_noise(self, set_light, after_exposure_lock_callback):
         """
         Function that makes an intensity mask. Sets up the sensor and its settings,
         takes a bunch of pictures, applies corrections and writes to file.
 
-        :param path_to_img: string pointing to the path the img needs to be stored at
-        :param path_to_cfg: string pointing to the path the mask needs to be stored at
-        :return: 0 for success
+        :param set_light: function that when called with 0 as parameter turns off the appropriate lights
+            and when called with 1 as parameter turns it back on
+        :param after_exposure_lock_callback: function that is called after the exposure is locked, no
+            parameters, no return value
+        :return: 8 bit rgb array containing the image
         """
+
+        # turn on the light
+        set_light(1)
+        time.sleep(0.1)
 
         d_print("Warming up camera sensor...", 1)
 
@@ -181,50 +185,43 @@ class PI_CAM_NOIR_V21(Camera):
             sensor.shutter_speed = self.shutter_speed
             #sensor.iso = self.iso
             d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-            time.sleep(20)
+            time.sleep(10)
             sensor.exposure_mode = self.exposure_mode
-            sensor.exposure_compensation = self.exposure_compensation
             d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
 
-            #sensor.start_preview()
-
-            print("Now please remove the small object from the kit and close it up again.")
-            print("Type anything to continue.")
-            rsp = input("Input: ")
+            # do the after exposure lock callback, in case something needs to be performed here
+            after_exposure_lock_callback()
 
             # record camera data to array and scale up a numpy array
             d_print("Stacking images...", 1)
             rgb = np.zeros((1216,1216,3), dtype=np.uint16)
+            dark = np.zeros((1216,1216,3), dtype=np.uint16)
             with picamera.array.PiRGBArray(sensor) as output:
+                # capture 10 images in a row to reduce noise
                 for i in range(10):
                     output.truncate(0)
                     sensor.capture(output, 'rgb')
                     d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
                     rgb += output.array
 
-            # crop the sensor readout
-            rgb = rgb[self.camera_cfg["y_min"]:self.camera_cfg["y_max"], self.camera_cfg["x_min"]:self.camera_cfg["x_max"], :]
+                # turn off the light
+                set_light(0)
+                time.sleep(1)
 
-            # prevent division by zero and scale to 8 bit
+                # also capture 10 dark frames
+                for i in range(10):
+                    output.truncate(0)
+                    sensor.capture(output, 'rgb')
+                    d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                    dark += output.array
+
+            # perform dark frame subtraction
+            rgb -= dark
+
+            # scale to 8 bit
             rgb = np.floor_divide(rgb, 10)
             rgb = np.uint8(rgb)
 
-            hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
-            v = hsv[:,:,2]
-            v[v < 40] = 40
-            hsv[:,:,2] = v
-
-            rgb[rgb == 0] = 1
-
-            with open(path_to_cfg, 'wb') as f:
-                np.save(f, hsv)
-
-            # write image to file using imageio's imwrite
-            d_print("Writing to file...", 1)
-            imwrite(path_to_img, rgb.astype(np.uint8))
-
-            #sensor.stop_preview()
-
         d_print("Done.", 1)
 
-        return 0
+        return rgb

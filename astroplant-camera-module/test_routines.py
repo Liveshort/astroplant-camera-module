@@ -28,6 +28,7 @@ if __name__ == "__main__":
     cam = PI_CAM_NOIR_V21(pi = pi, light_pins = light_pins, growth_light_control = gwl)
 
     cam.do(CameraCommandType.CALIBRATE)
+    print(cam.do(CameraCommandType.DEPTH_MAP))
     print(cam.do(CameraCommandType.REGULAR_PHOTO))
 
     cam.state()

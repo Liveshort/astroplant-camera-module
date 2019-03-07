@@ -16,6 +16,8 @@ class CameraCommandType(object):
     # leaf mask (should produce a black/white mask that masks out the leaves)
     LEAF_MASK = "LEAF_MASK"
 
+    # depth map
+    DEPTH_MAP = "DEPTH_MAP"
     # visible leaf area from above (does not correct for leaves on top of each other)
     LEAF_AREA_STACKED = "LEAF_AREA_STACKED"
     # plant size along major axis

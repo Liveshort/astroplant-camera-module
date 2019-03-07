@@ -8,3 +8,6 @@ __pycache__/
 astroplant-camera-module/img/*
 # ...but keep the folder
 !astroplant-camera-module/img/.gitkeep
+
+# ignore experimentation folder
+foo/
