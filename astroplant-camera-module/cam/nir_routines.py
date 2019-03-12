@@ -93,7 +93,7 @@ class NIR_ROUTINES(object):
         # apply flatfield mask
         with open("{}/cfg/{}.ff".format(os.getcwd(), "red"), 'rb') as f:
             mask = np.load(f)
-            Rr = np.clip(0.8/gain_r*np.divide(r, mask), 0.0, 1.0)
+            Rr = np.clip(0.8*self.camera.camera_cfg["gain"]["red"]/gain_r*np.divide(r, mask), 0.0, 1.0)
 
         # crop the sensor readout
         rgb_nir = rgb_nir[self.camera.camera_cfg["y_min"]:self.camera.camera_cfg["y_max"], self.camera.camera_cfg["x_min"]:self.camera.camera_cfg["x_max"], :]
@@ -103,17 +103,26 @@ class NIR_ROUTINES(object):
         # apply flatfield mask
         with open("{}/cfg/{}.ff".format(os.getcwd(), "nir"), 'rb') as f:
             mask = np.load(f)
-            Rnir = np.clip(0.8/gain_nir*np.divide(v, mask), 0.0, 1.0)
+            Rnir = np.clip(0.8*self.camera.camera_cfg["gain"]["nir"]/gain_nir*np.divide(v, mask), 0.0, 1.0)
+
+        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "red")
+        imwrite(path_to_img, np.uint8(255*Rr))
+
+        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "nir")
+        imwrite(path_to_img, np.uint8(255*Rnir))
 
         # finally calculate ndvi
         ndvi = np.divide(Rnir - Rr, Rnir + Rr)
         rescaled = np.uint8(np.round(127.5*(ndvi + 1.0)))
         cm = cv2.applyColorMap(rescaled, cv2.COLORMAP_JET)
+        cm = cv2.cvtColor(cm, cv2.COLOR_BGR2RGB)
 
         # write image to file using imageio's imwrite
         d_print("Writing to file...", 1)
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        path_to_img = "{}/img/{}.tif".format(os.getcwd(), "ndvi")
+        path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 1)
+        imwrite(path_to_img, rescaled)
+        path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 2)
         imwrite(path_to_img, cm)
 
         # turn on the growth lighting

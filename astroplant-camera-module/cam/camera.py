@@ -73,6 +73,7 @@ class Camera(object):
         #self.camera_cfg = dict()
         #self.camera_cfg["cam_id"] = self.CAM_ID
         #self.camera_cfg["rotation"] = 0
+        self.camera_cfg["gain"] = dict()
 
         print("Starting calibration...")
 

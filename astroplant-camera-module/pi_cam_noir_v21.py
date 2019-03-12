@@ -196,7 +196,7 @@ class PI_CAM_NOIR_V21(Camera):
             sensor.shutter_speed = self.shutter_speed
             #sensor.iso = self.iso
             sensor.awb_mode = "off"
-            sensor.awb_gains = (self.camera_cfg["wb"][wb_channel]["r"], self.camera_cfg["wb"][wb_channel]["r"])
+            sensor.awb_gains = (self.camera_cfg["wb"][wb_channel]["r"], self.camera_cfg["wb"][wb_channel]["b"])
             d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
             time.sleep(10)
             sensor.exposure_mode = self.exposure_mode
@@ -252,7 +252,7 @@ class PI_CAM_NOIR_V21(Camera):
 
         d_print("Warming up camera sensor...", 1)
 
-        if channel == "flood-white" or channel == "spot-white":
+        if channel == "flood-white" or channel == "spot-white" or channel == "nir":
             with picamera.PiCamera() as sensor:
                 # set up the sensor with all its settings
                 sensor.resolution = self.resolution
@@ -267,7 +267,7 @@ class PI_CAM_NOIR_V21(Camera):
                 d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
 
                 # set up the blue and red gains
-                rg, bg = (0.5, 0.5)
+                rg, bg = (1.2, 1.2)
                 sensor.awb_gains = (rg, bg)
 
                 # record camera data to array and scale up a numpy array
@@ -284,16 +284,16 @@ class PI_CAM_NOIR_V21(Camera):
                         r, g, b = (np.mean(crop[..., i]) for i in range(3))
                         print("rg: {} bg: {} --- ({}, {}, {})".format(rg, bg, r, g, b))
 
-                        if abs(r - g) > 2:
+                        if abs(r - g) > 1:
                             if r > g:
-                                rg -= 0.05
+                                rg -= 0.025
                             else:
-                                rg += 0.05
-                        if abs(b - g) > 2:
+                                rg += 0.025
+                        if abs(b - g) > 1:
                             if b > g:
-                                bg -= 0.05
+                                bg -= 0.025
                             else:
-                                bg += 0.05
+                                bg += 0.025
 
                         path_to_img = "{}/tst/{}{}.jpg".format(os.getcwd(), "wb", i)
                         imwrite(path_to_img, crop)

@@ -108,7 +108,9 @@ class CALIBRATION_ROUTINES(object):
 
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["spot-white"])
-        rgb, _ = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "spot-white")
+        rgb, gain = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "spot-white")
+
+        self.camera.camera_cfg["gain"]["spot-white"] = float(gain)
 
         # turn off the white light
         d_print("Turning off white camera lighting...", 1)
@@ -136,7 +138,7 @@ class CALIBRATION_ROUTINES(object):
 
     def calibrate_red(self):
         # turn on the red light
-        d_print("Turning on white camera lighting...", 1)
+        d_print("Turning on red camera lighting...", 1)
         self.pi.write(self.light_pins["red"], 1)
         time.sleep(1)
 
@@ -145,7 +147,9 @@ class CALIBRATION_ROUTINES(object):
 
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["red"])
-        rgb, _ = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "red")
+        rgb, gain = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "red")
+
+        self.camera.camera_cfg["gain"]["red"] = float(gain)
 
         # turn off the red light
         d_print("Turning off red camera lighting...", 1)
@@ -172,7 +176,7 @@ class CALIBRATION_ROUTINES(object):
 
     def calibrate_nir(self):
         # turn on the NIR light
-        d_print("Turning on white camera lighting...", 1)
+        d_print("Turning on nir camera lighting...", 1)
         self.pi.write(self.light_pins["nir"], 1)
         time.sleep(1)
 
@@ -181,7 +185,9 @@ class CALIBRATION_ROUTINES(object):
 
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["nir"])
-        rgb, _ = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "nir")
+        rgb, gain = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "nir")
+
+        self.camera.camera_cfg["gain"]["nir"] = float(gain)
 
         # turn off the nir light
         d_print("Turning off nir camera lighting...", 1)
