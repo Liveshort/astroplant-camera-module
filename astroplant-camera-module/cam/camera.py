@@ -39,7 +39,9 @@ class Camera(object):
         elif command == CameraCommandType.DEPTH_MAP and self.VIS_CAPABLE and self.CALIBRATED:
             return self.vis.pseudo_depth_map()
         elif command == CameraCommandType.LEAF_MASK and self.NIR_CAPABLE and self.CALIBRATED:
-            return self.vis.leaf_mask()
+            return self.nir.leaf_mask()
+        elif command == CameraCommandType.NDVI_PHOTO and self.NIR_CAPABLE and self.CALIBRATED:
+            return self.nir.ndvi_photo()
         elif command == CameraCommandType.CALIBRATE:
             self.calibrate()
         else:
@@ -47,11 +49,19 @@ class Camera(object):
             return ""
 
     @abc.abstractmethod
-    def capture_image_auto(self, path_to_img):
+    def capture_auto(self, path_to_img):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def capture_image(self, path_to_img):
+    def capture(self, set_light, after_exposure_lock_callback, wb_channel):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def capture_low_noise(self, set_light, after_exposure_lock_callback, wb_channel):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def calibrate_white_balance(self, channel):
         raise NotImplementedError()
 
     def calibrate(self):
@@ -72,7 +82,9 @@ class Camera(object):
 
         if self.VIS_CAPABLE:
             #self.cal.calibrate_crop()
+            self.cal.calibrate_white_balance()
             self.cal.calibrate_white()
+            self.cal.calibrate_red()
         if self.NIR_CAPABLE:
             self.cal.calibrate_nir()
 

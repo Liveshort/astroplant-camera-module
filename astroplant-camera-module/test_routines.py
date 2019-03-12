@@ -30,6 +30,7 @@ if __name__ == "__main__":
     cam.do(CameraCommandType.CALIBRATE)
     print(cam.do(CameraCommandType.DEPTH_MAP))
     print(cam.do(CameraCommandType.REGULAR_PHOTO))
+    print(cam.do(CameraCommandType.NDVI_PHOTO))
 
     cam.state()
     cam.sanity_check()
