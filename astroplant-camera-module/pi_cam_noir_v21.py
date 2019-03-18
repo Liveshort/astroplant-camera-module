@@ -76,7 +76,7 @@ class PI_CAM_NOIR_V21(Camera):
 
         # set up nir routines
         self.nir = NIR_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
-        # pass self (a camera object) to the visible routine
+        # pass self (a camera object) to the nir routine
         self.nir.set_camera(self)
 
     def capture_auto(self, path_to_img):
@@ -169,6 +169,86 @@ class PI_CAM_NOIR_V21(Camera):
         d_print("Done.", 1)
 
         return (rgb, gain)
+
+    def capture_duo(self, set_light_0, set_light_1, after_exposure_lock_callback, wb_channel_0, wb_channel_1):
+        """
+        Function that captures an image. Sets up the sensor and its settings,
+        lets it settle and takes a picture, returns the array to the user.
+
+        :param set_light: function that when called with 0 as parameter turns off the appropriate lights
+            and when called with 1 as parameter turns it back on
+        :param after_exposure_lock_callback: function that is called after the exposure is locked, no
+            parameters, no return value
+        :return: 8 bit rgb array containing the image
+        """
+
+        # turn on the light
+        set_light_0(1)
+        time.sleep(0.1)
+
+        d_print("Warming up camera sensor...", 1)
+
+        with picamera.PiCamera() as sensor:
+            # set up the sensor with all its settings
+            sensor.resolution = self.resolution
+            sensor.rotation = self.camera_cfg["rotation"]
+            sensor.framerate = self.framerate
+            sensor.shutter_speed = self.shutter_speed
+            #sensor.iso = self.iso
+            sensor.awb_mode = "off"
+            sensor.awb_gains = (self.camera_cfg["wb"][wb_channel_0]["r"], self.camera_cfg["wb"][wb_channel_0]["b"])
+            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
+            time.sleep(10)
+            sensor.exposure_mode = self.exposure_mode
+            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
+
+            # save the total gain of the sensor for this photo
+            gain = sensor.analog_gain*sensor.digital_gain
+
+            # do the after exposure lock callback, in case something needs to be performed here
+            after_exposure_lock_callback()
+
+            # record camera data to array, also get dark frame
+            #rgb = np.zeros((1216,1216,3), dtype=np.uint8)
+            #dark = np.zeros((1216,1216,3), dtype=np.uint8)
+            with picamera.array.PiRGBArray(sensor) as output:
+                # capture a lit frame
+                output.truncate(0)
+                sensor.capture(output, 'rgb')
+                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                rgb_0 = np.copy(output.array)
+
+                # turn off the first light
+                set_light_0(0)
+                time.sleep(0.2)
+
+                # capture a dark frame
+                output.truncate(0)
+                sensor.capture(output, 'rgb')
+                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                dark = np.copy(output.array)
+
+                # set new white balance, turn on the second light
+                sensor.awb_gains = (self.camera_cfg["wb"][wb_channel_1]["r"], self.camera_cfg["wb"][wb_channel_1]["b"])
+                set_light_1(1)
+                time.sleep(0.2)
+
+                # capture the second frame
+                output.truncate(0)
+                sensor.capture(output, 'rgb')
+                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                rgb_1 = np.copy(output.array)
+
+            # turn off the second light
+            set_light_1(0)
+
+            # perform dark frame subtraction
+            rgb_0 = cv2.subtract(rgb_0, dark)
+            rgb_1 = cv2.subtract(rgb_1, dark)
+
+        d_print("Done.", 1)
+
+        return (rgb_0, rgb_1, gain)
 
     def capture_low_noise(self, set_light, after_exposure_lock_callback, wb_channel):
         """
@@ -271,7 +351,7 @@ class PI_CAM_NOIR_V21(Camera):
                 sensor.awb_gains = (rg, bg)
 
                 # record camera data to array and scale up a numpy array
-                rgb = np.zeros((1216,1216,3), dtype=np.uint16)
+                #rgb = np.zeros((1216,1216,3), dtype=np.uint16)
                 with picamera.array.PiRGBArray(sensor) as output:
                     # capture images and analyze until convergence
                     for i in range(30):

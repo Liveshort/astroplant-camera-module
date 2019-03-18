@@ -81,10 +81,9 @@ class NIR_ROUTINES(object):
         self.growth_light_control(GrowthLightControl.OFF)
 
         # capture images in a square rgb array
-        set_light = set_light_curry(self.pi, self.light_pins["red"])
-        rgb_r, gain_r = self.camera.capture(set_light, empty_callback, "red")
-        set_light = set_light_curry(self.pi, self.light_pins["nir"])
-        rgb_nir, gain_nir = self.camera.capture(set_light, empty_callback, "nir")
+        set_light_0 = set_light_curry(self.pi, self.light_pins["red"])
+        set_light_1 = set_light_curry(self.pi, self.light_pins["nir"])
+        rgb_r, rgb_nir, gain = self.camera.capture_duo(set_light_0, set_light_1, empty_callback, "red", "nir")
 
         # crop the sensor readout
         rgb_r = rgb_r[self.camera.camera_cfg["y_min"]:self.camera.camera_cfg["y_max"], self.camera.camera_cfg["x_min"]:self.camera.camera_cfg["x_max"], :]
@@ -93,7 +92,7 @@ class NIR_ROUTINES(object):
         # apply flatfield mask
         with open("{}/cfg/{}.ff".format(os.getcwd(), "red"), 'rb') as f:
             mask = np.load(f)
-            Rr = np.clip(0.8*self.camera.camera_cfg["gain"]["red"]/gain_r*np.divide(r, mask), 0.0, 1.0)
+            Rr = np.clip(0.8*self.camera.camera_cfg["gain"]["red"]/gain*np.divide(r, mask), 0.0, 1.0)
 
         # crop the sensor readout
         rgb_nir = rgb_nir[self.camera.camera_cfg["y_min"]:self.camera.camera_cfg["y_max"], self.camera.camera_cfg["x_min"]:self.camera.camera_cfg["x_max"], :]
@@ -103,7 +102,7 @@ class NIR_ROUTINES(object):
         # apply flatfield mask
         with open("{}/cfg/{}.ff".format(os.getcwd(), "nir"), 'rb') as f:
             mask = np.load(f)
-            Rnir = np.clip(0.8*self.camera.camera_cfg["gain"]["nir"]/gain_nir*np.divide(v, mask), 0.0, 1.0)
+            Rnir = np.clip(0.8*self.camera.camera_cfg["gain"]["nir"]/gain*np.divide(v, mask), 0.0, 1.0)
 
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "red")
         imwrite(path_to_img, np.uint8(255*Rr))
