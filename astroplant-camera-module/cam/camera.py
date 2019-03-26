@@ -71,20 +71,24 @@ class Camera(object):
         Calibrates the camera and the light sources.
         """
 
-        # set up the camera config dict
-        #self.camera_cfg = dict()
-        #self.camera_cfg["cam_id"] = self.CAM_ID
-        #self.camera_cfg["rotation"] = 0
-        self.camera_cfg["gain"] = dict()
+        # ask user to put something white and diffuse in the kit
+        d_print("Assuming a white diffuse surface is placed at the bottom of the kit...", 1)
 
-        print("Starting calibration...")
+        # set up the camera config dict
+        self.camera_cfg = dict()
+        self.camera_cfg["cam_id"] = self.CAM_ID
+        self.camera_cfg["rotation"] = 0
+        self.camera_cfg["gain"] = dict()
+        self.camera_cfg["ff"] = dict()
+
+        d_print("Starting calibration...", 1)
 
         # turn off the growth lighting
         d_print("Turning off growth lighting...", 1)
         self.growth_light_control(GrowthLightControl.OFF)
 
         if self.VIS_CAPABLE:
-            #self.cal.calibrate_crop()
+            self.cal.calibrate_crop()
             self.cal.calibrate_white_balance()
             self.cal.calibrate_white()
             self.cal.calibrate_red()

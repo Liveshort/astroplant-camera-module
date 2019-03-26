@@ -57,7 +57,7 @@ class PI_CAM_NOIR_V21(Camera):
             d_print("No camera configuration file found!", 3)
             self.CALIBRATED = False
 
-        self.resolution = (1216,1216)
+        self.resolution = (1632,1216)
         self.framerate = Fraction(5, 1)
         self.shutter_speed = 200000
         self.iso = 200
@@ -290,8 +290,8 @@ class PI_CAM_NOIR_V21(Camera):
 
             # record camera data to array and scale up a numpy array
             d_print("Stacking images...", 1)
-            rgb = np.zeros((1216,1216,3), dtype=np.uint16)
-            dark = np.zeros((1216,1216,3), dtype=np.uint16)
+            rgb = np.zeros((1216,1632,3), dtype=np.uint16)
+            dark = np.zeros((1216,1632,3), dtype=np.uint16)
             with picamera.array.PiRGBArray(sensor) as output:
                 # capture 10 images in a row to reduce noise
                 for i in range(10):

@@ -31,57 +31,14 @@ class CALIBRATION_ROUTINES(object):
         self.camera = camera
 
     def calibrate_crop(self):
-        # turn on the white light
-        d_print("Turning on white camera lighting...", 1)
-        self.pi.write(self.light_pins["flood-white"], 1)
-        time.sleep(0.1)
+        self.camera.camera_cfg["x_min"] = 0
+        self.camera.camera_cfg["x_max"] = 1632
+        self.camera.camera_cfg["y_min"] = 0
+        self.camera.camera_cfg["y_max"] = 1216
 
-        # ask user to put something pointing somewhere in the kit
-        print("Please put something which you can identify pointing somewhere inside the kit (e.g.: pen) and close the kit.")
-        print("Type anything to continue.")
-        rsp = input("Input: ")
-
-        # take photo in auto mode
-        print("Taking auto photo...")
-        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "auto")
-        self.camera.capture_auto(path_to_img)
-        print("An auto photo was taken and saved at {}.\n".format(path_to_img))
-
-        # ask user for correct orientation
-        print("For ease of use, we would like the photos to be oriented with the opening of the kit at the bottomside.")
-        print("Please select the correct orientation for your camera:")
-        print("    0:   correctly oriented")
-        print("    90:  opening is on the right side (image will be rotated clockwise)")
-        print("    180: opening is on the top side (image will be flipped)")
-        print("    270: opening is on the left side (image will be rotated counterclockwise)")
-        self.camera.camera_cfg["rotation"] = int(input("Input: "))
-
-        # make confirmation photo
-        print("Taking auto photo...")
-        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "oriented")
-        self.camera.capture_auto(path_to_img)
-        print("An automatic photo was taken and saved at {}.\n".format(path_to_img))
-
-        # turn off the white light
-        d_print("Turning off white camera lighting...", 1)
-        self.pi.write(self.light_pins["flood-white"], 0)
-        time.sleep(0.1)
-
-        print("Now we would like to crop the photo to the size of the bottom plate of the kit.")
-        print("Open up your favorite image editor (paint should suffice) and find the pixel values (top left is (0,0)) for the following:")
-        self.camera.camera_cfg["x_min"] = int(input("(x) position of the left border of the bottom plate:   "))
-        self.camera.camera_cfg["x_max"] = int(input("(x) position of the right border of the bottom plate:  "))
-        self.camera.camera_cfg["y_min"] = int(input("(y) position of the top border of the bottom plate:    "))
-        self.camera.camera_cfg["y_max"] = int(input("(y) position of the bottom border of the bottom plate: "))
-
-        print("\nCrop configuration complete.")
+        d_print("Crop configuration complete.", 1)
 
     def calibrate_white_balance(self):
-        # ask user to put something white and diffuse in the kit
-        print("Please remove the plant container and place a white diffuse surface on the bottom plate of the kit and close the kit.")
-        print("Type anything to continue.")
-        rsp = input("Input: ")
-
         self.camera.camera_cfg["wb"] = dict()
 
         for channel in self.light_pins:
@@ -103,12 +60,9 @@ class CALIBRATION_ROUTINES(object):
         self.pi.write(self.light_pins["spot-white"], 1)
         time.sleep(1)
 
-        # ask user to place object in kit
-        place_object_in_kit()
-
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["spot-white"])
-        rgb, gain = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "spot-white")
+        rgb, gain = self.camera.capture_low_noise(set_light, empty_callback, "spot-white")
 
         self.camera.camera_cfg["gain"]["spot-white"] = float(gain)
 
@@ -123,13 +77,8 @@ class CALIBRATION_ROUTINES(object):
         # turn rgb into hsv and extract the v channel as the mask
         hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
         v = hsv[:,:,2]
-        # limit the case where values are really low to prevent blow out in dark parts of the image
-        v[v < 40] = 40
-
-        # save the value part np array to file so it can be loaded later
-        path_to_cfg = "{}/cfg/{}.ff".format(os.getcwd(), "spot-white")
-        with open(path_to_cfg, 'wb') as f:
-            np.save(f, v)
+        # get the average intensity of the light and save for flatfielding
+        self.camera.camera_cfg["ff"]["spot-white"] = np.mean(v)
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/cfg/{}.jpg".format(os.getcwd(), "spot-white_mask")
@@ -142,12 +91,9 @@ class CALIBRATION_ROUTINES(object):
         self.pi.write(self.light_pins["red"], 1)
         time.sleep(1)
 
-        # ask user to place object in kit
-        place_object_in_kit()
-
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["red"])
-        rgb, gain = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "red")
+        rgb, gain = self.camera.capture_low_noise(set_light, empty_callback, "red")
 
         self.camera.camera_cfg["gain"]["red"] = float(gain)
 
@@ -161,13 +107,8 @@ class CALIBRATION_ROUTINES(object):
 
         # extract the red channel
         r = rgb[:,:,0]
-        # limit the case where values are really low to prevent blow out in dark parts of the image
-        r[r < 40] = 40
-
-        # save the value part np array to file so it can be loaded later
-        path_to_cfg = "{}/cfg/{}.ff".format(os.getcwd(), "red")
-        with open(path_to_cfg, 'wb') as f:
-            np.save(f, r)
+        # get the average intensity of the light and save for flatfielding
+        self.camera.camera_cfg["ff"]["red"] = np.mean(r)
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/cfg/{}.jpg".format(os.getcwd(), "red_mask")
@@ -180,12 +121,9 @@ class CALIBRATION_ROUTINES(object):
         self.pi.write(self.light_pins["nir"], 1)
         time.sleep(1)
 
-        # ask user to place object in kit
-        place_object_in_kit()
-
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["nir"])
-        rgb, gain = self.camera.capture_low_noise(set_light, remove_object_from_kit_callback, "nir")
+        rgb, gain = self.camera.capture_low_noise(set_light, empty_callback, "nir")
 
         self.camera.camera_cfg["gain"]["nir"] = float(gain)
 
@@ -200,13 +138,8 @@ class CALIBRATION_ROUTINES(object):
         # turn rgb into hsv and extract the v channel as the mask
         hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
         v = hsv[:,:,2]
-        # limit the case where values are really low to prevent blow out in dark parts of the image
-        v[v < 40] = 40
-
-        # save the value part np array to file so it can be loaded later
-        path_to_cfg = "{}/cfg/{}.ff".format(os.getcwd(), "nir")
-        with open(path_to_cfg, 'wb') as f:
-            np.save(f, v)
+        # get the average intensity of the light and save for flatfielding
+        self.camera.camera_cfg["ff"]["nir"] = np.mean(v)
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/cfg/{}.jpg".format(os.getcwd(), "nir_mask")

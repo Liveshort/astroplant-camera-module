@@ -80,9 +80,8 @@ class VISIBLE_ROUTINES(object):
         hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
 
         # apply mask
-        with open("{}/cfg/{}.ff".format(os.getcwd(), "spot-white"), 'rb') as f:
-            mask = np.load(f)
-            hsv[:,:,2] = np.uint8(np.clip(np.round(128*np.divide(hsv[:,:,2], mask)), 0, 255))
+        mask = self.camera.camera_cfg["ff"]["spot-white"]
+        hsv[:,:,2] = np.uint8(np.clip(np.round(128*np.divide(hsv[:,:,2], mask)), 0, 255))
 
         rgb = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
 

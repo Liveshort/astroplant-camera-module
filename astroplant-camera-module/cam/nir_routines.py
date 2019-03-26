@@ -53,9 +53,8 @@ class NIR_ROUTINES(object):
         v = hsv[:,:,2]
 
         # apply mask
-        with open("{}/cfg/{}.ff".format(os.getcwd(), "nir"), 'rb') as f:
-            mask = np.load(f)
-            v = np.uint8(np.clip(np.round(128*np.divide(v, mask)), 0, 255))
+        mask = self.camera.camera_cfg["ff"]["nir"]
+        v = np.uint8(np.clip(np.round(128*np.divide(v, mask)), 0, 255))
 
         # write image to file using imageio's imwrite
         d_print("Writing to file...", 1)
@@ -86,9 +85,8 @@ class NIR_ROUTINES(object):
         r = rgb_r[:,:,0]
 
         # apply flatfield mask
-        with open("{}/cfg/{}.ff".format(os.getcwd(), "red"), 'rb') as f:
-            mask = np.load(f)
-            Rr = 0.8*self.camera.camera_cfg["gain"]["red"]/gain*np.divide(r, mask)
+        mask = self.camera.camera_cfg["ff"]["red"]
+        Rr = 0.8*self.camera.camera_cfg["gain"]["red"]/gain*np.divide(r, mask)
 
         # crop the sensor readout
         rgb_nir = rgb_nir[self.camera.camera_cfg["y_min"]:self.camera.camera_cfg["y_max"], self.camera.camera_cfg["x_min"]:self.camera.camera_cfg["x_max"], :]
@@ -96,9 +94,8 @@ class NIR_ROUTINES(object):
         v = hsv[:,:,2]
 
         # apply flatfield mask
-        with open("{}/cfg/{}.ff".format(os.getcwd(), "nir"), 'rb') as f:
-            mask = np.load(f)
-            Rnir = 0.8*self.camera.camera_cfg["gain"]["nir"]/gain*np.divide(v, mask)
+        mask = self.camera.camera_cfg["ff"]["nir"]
+        Rnir = 0.8*self.camera.camera_cfg["gain"]["nir"]/gain*np.divide(v, mask)
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "red_raw")
