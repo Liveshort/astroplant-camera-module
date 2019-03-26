@@ -69,16 +69,12 @@ class NIR_ROUTINES(object):
 
         return(path_to_img)
 
-    def ndvi_photo(self):
+    def ndvi_matrix(self):
         """
-        Make a photo and distill a pseudo depth map from it using some cv2 voodoo.
+        Internal function that makes the ndvi matrix.
 
-        :return: path to the depth map
+        :return: ndvi matrix
         """
-
-        # turn off the growth lighting
-        d_print("Turning off growth lighting...", 1)
-        self.growth_light_control(GrowthLightControl.OFF)
 
         # capture images in a square rgb array
         set_light_0 = set_light_curry(self.pi, self.light_pins["red"])
@@ -92,7 +88,7 @@ class NIR_ROUTINES(object):
         # apply flatfield mask
         with open("{}/cfg/{}.ff".format(os.getcwd(), "red"), 'rb') as f:
             mask = np.load(f)
-            Rr = np.clip(0.8*self.camera.camera_cfg["gain"]["red"]/gain*np.divide(r, mask), 0.0, 1.0)
+            Rr = 0.8*self.camera.camera_cfg["gain"]["red"]/gain*np.divide(r, mask)
 
         # crop the sensor readout
         rgb_nir = rgb_nir[self.camera.camera_cfg["y_min"]:self.camera.camera_cfg["y_max"], self.camera.camera_cfg["x_min"]:self.camera.camera_cfg["x_max"], :]
@@ -102,17 +98,46 @@ class NIR_ROUTINES(object):
         # apply flatfield mask
         with open("{}/cfg/{}.ff".format(os.getcwd(), "nir"), 'rb') as f:
             mask = np.load(f)
-            Rnir = np.clip(0.8*self.camera.camera_cfg["gain"]["nir"]/gain*np.divide(v, mask), 0.0, 1.0)
+            Rnir = 0.8*self.camera.camera_cfg["gain"]["nir"]/gain*np.divide(v, mask)
+
+        # write image to file using imageio's imwrite
+        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "red_raw")
+        imwrite(path_to_img, rgb_r.astype(np.uint8))
+
+        path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "nir_raw")
+        imwrite(path_to_img, rgb_nir.astype(np.uint8))
 
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "red")
-        imwrite(path_to_img, np.uint8(255*Rr))
+        imwrite(path_to_img, np.uint8(255*Rr/np.amax(Rr)))
 
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "nir")
-        imwrite(path_to_img, np.uint8(255*Rnir))
+        imwrite(path_to_img, np.uint8(255*Rnir/np.amax(Rnir)))
 
         # finally calculate ndvi
         ndvi = np.divide(Rnir - Rr, Rnir + Rr)
-        rescaled = np.uint8(np.round(127.5*(ndvi + 1.0)))
+
+        return ndvi
+
+    def ndvi_photo(self):
+        """
+        Make a photo in the nir and the red spectrum and overlay to obtain ndvi.
+
+        :return: path to the ndvi image
+        """
+
+        # turn off the growth lighting
+        d_print("Turning off growth lighting...", 1)
+        self.growth_light_control(GrowthLightControl.OFF)
+
+        # get the ndvi matrix
+        ndvi_matrix = self.ndvi_matrix()
+        ndvi = np.mean(ndvi_matrix[ndvi_matrix > 0.2])
+
+        ndvi_capped = np.copy(ndvi_matrix)
+        ndvi_capped[ndvi_capped < 0.2] = 0.0
+
+        rescaled = np.uint8(np.round(127.5*(np.clip(ndvi_matrix, -1.0, 1.0) + 1.0)))
+        rescaled2 = np.uint8(np.round(127.5*(np.clip(ndvi_capped, -1.0, 1.0) + 1.0)))
         cm = cv2.applyColorMap(rescaled, cv2.COLORMAP_JET)
         cm = cv2.cvtColor(cm, cv2.COLOR_BGR2RGB)
 
@@ -121,6 +146,8 @@ class NIR_ROUTINES(object):
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 1)
         imwrite(path_to_img, rescaled)
+        path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 0)
+        imwrite(path_to_img, rescaled2)
         path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 2)
         imwrite(path_to_img, cm)
 
@@ -128,4 +155,25 @@ class NIR_ROUTINES(object):
         d_print("Turning on growth lighting...", 1)
         self.growth_light_control(GrowthLightControl.ON)
 
-        return(path_to_img)
+        return(path_to_img, ndvi)
+
+    def ndvi(self):
+        """
+        Make a photo in the nir and the red spectrum and overlay to obtain ndvi.
+
+        :return: path to the ndvi image
+        """
+
+        # turn off the growth lighting
+        d_print("Turning off growth lighting...", 1)
+        self.growth_light_control(GrowthLightControl.OFF)
+
+        # get the ndvi matrix
+        ndvi_matrix = self.ndvi_matrix()
+        ndvi = np.mean(ndvi_matrix[ndvi_matrix > 0.2])
+
+        # turn on the growth lighting
+        d_print("Turning on growth lighting...", 1)
+        self.growth_light_control(GrowthLightControl.ON)
+
+        return(ndvi)

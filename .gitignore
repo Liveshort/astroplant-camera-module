@@ -11,3 +11,10 @@ astroplant-camera-module/img/*
 
 # ignore experimentation folder
 foo/
+
+# ignore dat and img files of the linearity test
+supporting-scripts/linearity-test/dat/*
+supporting-scripts/linearity-test/img/*
+# ...but keep the folders
+!supporting-scripts/linearity-test/dat/.gitkeep
+!supporting-scripts/linearity-test/img/.gitkeep

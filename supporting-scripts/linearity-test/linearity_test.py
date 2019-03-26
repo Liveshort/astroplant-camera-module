@@ -5,6 +5,7 @@ import time
 import pigpio
 import picamera.array
 import os
+import pickle
 import numpy as np
 
 from fractions import Fraction
@@ -54,14 +55,14 @@ if __name__ == "__main__":
     shutter_speed = 40000
     exposure_mode = "off"
     exposure_compensation = 0
-    analog_gain = 3
+    analog_gain = 1
     digital_gain = 1
 
     # parameters of the test
-    framerates = [Fraction(40,1), Fraction(20,1), Fraction(10,1), Fraction(5,1), Fraction(5,2), Fraction(5,4), Fraction(5,8)]
-    shutter_speeds = [25000, 50000, 100000, 200000, 400000, 800000, 1600000]
-    analog_gains = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7]
-    digital_gains = [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7]
+    framerates = [Fraction(40,1), Fraction(20,1), Fraction(40,3), Fraction(10,1), Fraction(8,1), Fraction(20,3), Fraction(5,1), Fraction(10,3), Fraction(5,2), Fraction(2,1), Fraction(10,6), Fraction(10,7), Fraction(5,4)]
+    shutter_speeds = [25000, 50000, 75000, 100000, 125000, 150000, 200000, 300000, 400000, 500000, 600000, 700000, 800000]
+    analog_gains = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]
+    digital_gains = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8]
 
     # set up a settings list
     settings = []
@@ -75,6 +76,9 @@ if __name__ == "__main__":
     with open('settings.txt', 'w') as f:
         for i, setting in enumerate(settings):
             f.write("{}: {}\n".format(i, setting))
+
+    with open('settings.pkl', 'wb') as f:
+        pickle.dump(settings, f)
 
     # turn on the light
     pi = pigpio.pi()
@@ -124,8 +128,9 @@ if __name__ == "__main__":
 
             awb_gains = (rg, bg)
 
-    rsp = input("place the blocked paper under the light...")
+    rsp = input("place the blocked paper under the light end press enter...")
 
+    actual_gains = []
     # then perform the test
     for i, setting in enumerate(settings):
         with picamera.PiCamera() as cam:
@@ -139,10 +144,12 @@ if __name__ == "__main__":
             cam.awb_gains = awb_gains
 
             print("Current a/d gains: {}, {}".format(cam.analog_gain, cam.digital_gain))
-            time.sleep(2)
+            time.sleep(5)
             print("Current a/d gains: {}, {}".format(cam.analog_gain, cam.digital_gain))
 
             cam.exposure_mode = exposure_mode
+
+            actual_gains.append([cam.shutter_speed, cam.analog_gain, cam.digital_gain])
 
             # get an image from the camera
             with picamera.array.PiRGBArray(cam) as output:
@@ -152,8 +159,21 @@ if __name__ == "__main__":
                 rgb = np.copy(output.array)
                 print("took photo with settings: {}".format(setting))
 
+            # save the image
             path_to_img = "{}/img/{}.jpg".format(os.getcwd(), i)
             imwrite(path_to_img, rgb)
+
+            # save the byte array
+            with open("{}/dat/{}.np".format(os.getcwd(), i), 'wb') as f:
+                np.save(f, rgb)
+
+    # write recorded gains to file
+    with open('gains.txt', 'w') as f:
+        for i, setting in enumerate(settings):
+            f.write("{}: {}\n".format(i, actual_gains))
+
+    with open('gains.pkl', 'wb') as f:
+        pickle.dump(actual_gains, f)
 
     # turn off the light
     pi.write(2,0)

@@ -26,6 +26,8 @@ class CameraCommandType(object):
     PLANT_SIZE_MINOR = "PLANT_SIZE_MINOR"
     # circumference of the bounding box of the plant
     PLANT_SIZE_BOUNDING_BOX = "PLANT_SIZE_BOUNDING_BOX"
+    # averaged ndvi value of the plant (all material with ndvi > 0.2)
+    NDVI = "NDVI"
 
     # calibrate the camera and the lights
     CALIBRATE = "CALIBRATE"

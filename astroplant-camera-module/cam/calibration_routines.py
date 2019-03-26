@@ -59,7 +59,7 @@ class CALIBRATION_ROUTINES(object):
         # make confirmation photo
         print("Taking auto photo...")
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "oriented")
-        self.capture_auto(path_to_img)
+        self.camera.capture_auto(path_to_img)
         print("An automatic photo was taken and saved at {}.\n".format(path_to_img))
 
         # turn off the white light

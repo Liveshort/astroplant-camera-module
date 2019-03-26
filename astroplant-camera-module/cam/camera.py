@@ -42,6 +42,8 @@ class Camera(object):
             return self.nir.leaf_mask()
         elif command == CameraCommandType.NDVI_PHOTO and self.NIR_CAPABLE and self.CALIBRATED:
             return self.nir.ndvi_photo()
+        elif command == CameraCommandType.NDVI and self.NIR_CAPABLE and self.CALIBRATED:
+            return self.nir.ndvi()
         elif command == CameraCommandType.CALIBRATE:
             self.calibrate()
         else:
