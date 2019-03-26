@@ -1,3 +1,6 @@
+import matplotlib.colors as colors
+import numpy as np
+
 # define an empty callback
 def empty_callback():
     pass
@@ -20,3 +23,9 @@ def remove_object_from_kit_callback():
     print("Now please remove the small object from the kit and close it up again.")
     print("Type anything to continue.")
     rsp = input("Input: ")
+
+# function used to obtain Polariks ndvi map
+def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
+    new_cmap = colors.LinearSegmentedColormap.from_list("trunc({n},{a:.2f},{b:.2f})".format(n=cmap.name, a=minval, b=maxval), cmap(np.linspace(minval, maxval, n)))
+
+    return new_cmap

@@ -7,10 +7,12 @@ import cv2
 
 import numpy as np
 from imageio import imwrite
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 
 from .growth_light_control import *
 from .debug_print import *
-from .misc import empty_callback, set_light_curry
+from .misc import empty_callback, set_light_curry, truncate_colormap
 
 class NIR_ROUTINES(object):
     def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
@@ -131,25 +133,30 @@ class NIR_ROUTINES(object):
 
         # get the ndvi matrix
         ndvi_matrix = self.ndvi_matrix()
+        ndvi_matrix = np.clip(ndvi_matrix, -1.0, 1.0)
         ndvi = np.mean(ndvi_matrix[ndvi_matrix > 0.2])
 
-        ndvi_capped = np.copy(ndvi_matrix)
-        ndvi_capped[ndvi_capped < 0.2] = 0.0
+        rescaled = np.uint8(np.round(127.5*(ndvi_matrix + 1.0)))
 
-        rescaled = np.uint8(np.round(127.5*(np.clip(ndvi_matrix, -1.0, 1.0) + 1.0)))
-        rescaled2 = np.uint8(np.round(127.5*(np.clip(ndvi_capped, -1.0, 1.0) + 1.0)))
-        cm = cv2.applyColorMap(rescaled, cv2.COLORMAP_JET)
-        cm = cv2.cvtColor(cm, cv2.COLOR_BGR2RGB)
+        # set the right colormap
+        cmap = plt.get_cmap("nipy_spectral_r")
+        Polariks_cmap = truncate_colormap(cmap, 0, 0.6)
+
+        ndvi_plot = np.copy(ndvi_matrix)
+        ndvi_plot[ndvi_plot<0] = 0
+
+        path_to_img = "{}/img/{}{}.jpg".format(os.getcwd(), "ndvi", 2)
+        plt.figure(figsize=(12,10))
+        plt.imshow(ndvi_plot, cmap=Polariks_cmap)
+        plt.colorbar()
+        plt.title("NDVI")
+        plt.savefig(path_to_img)
 
         # write image to file using imageio's imwrite
         d_print("Writing to file...", 1)
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 1)
         imwrite(path_to_img, rescaled)
-        path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 0)
-        imwrite(path_to_img, rescaled2)
-        path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 2)
-        imwrite(path_to_img, cm)
 
         # turn on the growth lighting
         d_print("Turning on growth lighting...", 1)
