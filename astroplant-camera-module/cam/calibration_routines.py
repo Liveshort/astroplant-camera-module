@@ -62,7 +62,7 @@ class CALIBRATION_ROUTINES(object):
 
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["spot-white"])
-        rgb, gain = self.camera.capture_low_noise(set_light, empty_callback, "spot-white")
+        rgb, gain = self.camera.capture(set_light, empty_callback, "spot-white")
 
         self.camera.camera_cfg["gain"]["spot-white"] = float(gain)
 
@@ -78,7 +78,7 @@ class CALIBRATION_ROUTINES(object):
         hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
         v = hsv[:,:,2]
         # get the average intensity of the light and save for flatfielding
-        self.camera.camera_cfg["ff"]["spot-white"] = np.mean(v)
+        self.camera.camera_cfg["ff"]["spot-white"] = np.mean(v[68:880,428:1240])
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/cfg/{}.jpg".format(os.getcwd(), "spot-white_mask")
@@ -93,7 +93,7 @@ class CALIBRATION_ROUTINES(object):
 
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["red"])
-        rgb, gain = self.camera.capture_low_noise(set_light, empty_callback, "red")
+        rgb, gain = self.camera.capture(set_light, empty_callback, "red")
 
         self.camera.camera_cfg["gain"]["red"] = float(gain)
 
@@ -107,8 +107,15 @@ class CALIBRATION_ROUTINES(object):
 
         # extract the red channel
         r = rgb[:,:,0]
+
+        # save the value part np array to file so it can be loaded later
+        path_to_field = "{}/cfg/{}.field".format(os.getcwd(), "red")
+        with open(path_to_field, 'wb') as f:
+            np.save(f, r)
+
         # get the average intensity of the light and save for flatfielding
-        self.camera.camera_cfg["ff"]["red"] = np.mean(r)
+        self.camera.camera_cfg["ff"]["red"] = np.mean(r[68:880,428:1240])
+        print("red ff std: " + str(np.std(r[68:880,428:1240])))
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/cfg/{}.jpg".format(os.getcwd(), "red_mask")
@@ -123,7 +130,7 @@ class CALIBRATION_ROUTINES(object):
 
         # capture image in a square rgb array
         set_light = set_light_curry(self.pi, self.light_pins["nir"])
-        rgb, gain = self.camera.capture_low_noise(set_light, empty_callback, "nir")
+        rgb, gain = self.camera.capture(set_light, empty_callback, "nir")
 
         self.camera.camera_cfg["gain"]["nir"] = float(gain)
 
@@ -139,7 +146,13 @@ class CALIBRATION_ROUTINES(object):
         hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
         v = hsv[:,:,2]
         # get the average intensity of the light and save for flatfielding
-        self.camera.camera_cfg["ff"]["nir"] = np.mean(v)
+        self.camera.camera_cfg["ff"]["nir"] = np.mean(v[68:880,428:1240])
+        print("nir ff std: " + str(np.std(v[68:880,428:1240])))
+
+        # save the value part np array to file so it can be loaded later
+        path_to_field = "{}/cfg/{}.field".format(os.getcwd(), "nir")
+        with open(path_to_field, 'wb') as f:
+            np.save(f, v)
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/cfg/{}.jpg".format(os.getcwd(), "nir_mask")

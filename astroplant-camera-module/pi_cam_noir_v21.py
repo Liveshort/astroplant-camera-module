@@ -58,8 +58,8 @@ class PI_CAM_NOIR_V21(Camera):
             self.CALIBRATED = False
 
         self.resolution = (1632,1216)
-        self.framerate = Fraction(5, 1)
-        self.shutter_speed = 200000
+        self.framerate = Fraction(10, 3)
+        self.shutter_speed = 300000
         self.iso = 200
         self.exposure_mode = "off"
         self.exposure_compensation = 0
@@ -133,7 +133,7 @@ class PI_CAM_NOIR_V21(Camera):
             sensor.awb_mode = "off"
             sensor.awb_gains = (self.camera_cfg["wb"][wb_channel]["r"], self.camera_cfg["wb"][wb_channel]["b"])
             d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-            time.sleep(10)
+            time.sleep(20)
             sensor.exposure_mode = self.exposure_mode
             d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
 
@@ -359,10 +359,10 @@ class PI_CAM_NOIR_V21(Camera):
                         sensor.capture(output, 'rgb')
                         rgb = np.copy(output.array)
 
-                        crop = rgb[508:708,508:708,:]
+                        crop = rgb[508:708,666:966,:]
 
                         r, g, b = (np.mean(crop[..., i]) for i in range(3))
-                        print("rg: {} bg: {} --- ({}, {}, {})".format(rg, bg, r, g, b))
+                        print("rg: {:4.3f} bg: {:4.3f} --- ({:4.1f}, {:4.1f}, {:4.1f})".format(rg, bg, r, g, b))
 
                         if abs(r - g) > 1:
                             if r > g:

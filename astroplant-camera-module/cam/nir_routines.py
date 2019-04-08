@@ -6,11 +6,14 @@ import time
 import cv2
 
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+
 from imageio import imwrite
 
 from .growth_light_control import *
 from .debug_print import *
-from .misc import empty_callback, set_light_curry
+from .misc import empty_callback, set_light_curry, truncate_colormap
 
 class NIR_ROUTINES(object):
     def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
@@ -97,6 +100,14 @@ class NIR_ROUTINES(object):
         mask = self.camera.camera_cfg["ff"]["nir"]
         Rnir = 0.8*self.camera.camera_cfg["gain"]["nir"]/gain*np.divide(v, mask)
 
+        # save the value part np array to file so it can be loaded later
+        path_to_field = "{}/res/{}.field".format(os.getcwd(), "red")
+        with open(path_to_field, 'wb') as f:
+            np.save(f, r)
+        path_to_field = "{}/res/{}.field".format(os.getcwd(), "nir")
+        with open(path_to_field, 'wb') as f:
+            np.save(f, v)
+
         # write image to file using imageio's imwrite
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "red_raw")
         imwrite(path_to_img, rgb_r.astype(np.uint8))
@@ -104,14 +115,21 @@ class NIR_ROUTINES(object):
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "nir_raw")
         imwrite(path_to_img, rgb_nir.astype(np.uint8))
 
+        print("red max: " + str(np.amax(Rr)))
+        print("nir max: " + str(np.amax(Rnir)))
+
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "red")
         imwrite(path_to_img, np.uint8(255*Rr/np.amax(Rr)))
 
         path_to_img = "{}/img/{}.jpg".format(os.getcwd(), "nir")
         imwrite(path_to_img, np.uint8(255*Rnir/np.amax(Rnir)))
 
-        # finally calculate ndvi
-        ndvi = np.divide(Rnir - Rr, Rnir + Rr)
+        # finally calculate ndvi (with some failsafes)
+        num = Rnir - Rr
+        den = Rnir + Rr
+        num[den < 0.05] = 0.0
+        den[den < 0.05] = 1.0
+        ndvi = np.divide(num, den)
 
         return ndvi
 
@@ -119,7 +137,7 @@ class NIR_ROUTINES(object):
         """
         Make a photo in the nir and the red spectrum and overlay to obtain ndvi.
 
-        :return: path to the ndvi image
+        :return: (path to the ndvi image, average ndvi value for >0.2)
         """
 
         # turn off the growth lighting
@@ -128,25 +146,30 @@ class NIR_ROUTINES(object):
 
         # get the ndvi matrix
         ndvi_matrix = self.ndvi_matrix()
+        ndvi_matrix = np.clip(ndvi_matrix, -1.0, 1.0)
         ndvi = np.mean(ndvi_matrix[ndvi_matrix > 0.2])
 
-        ndvi_capped = np.copy(ndvi_matrix)
-        ndvi_capped[ndvi_capped < 0.2] = 0.0
+        rescaled = np.uint8(np.round(127.5*(ndvi_matrix + 1.0)))
 
-        rescaled = np.uint8(np.round(127.5*(np.clip(ndvi_matrix, -1.0, 1.0) + 1.0)))
-        rescaled2 = np.uint8(np.round(127.5*(np.clip(ndvi_capped, -1.0, 1.0) + 1.0)))
-        cm = cv2.applyColorMap(rescaled, cv2.COLORMAP_JET)
-        cm = cv2.cvtColor(cm, cv2.COLOR_BGR2RGB)
+        # set the right colormap
+        cmap = plt.get_cmap("nipy_spectral_r")
+        Polariks_cmap = truncate_colormap(cmap, 0, 0.6)
+
+        ndvi_plot = np.copy(ndvi_matrix)
+        ndvi_plot[ndvi_plot<0] = 0
+
+        path_to_img = "{}/img/{}{}.jpg".format(os.getcwd(), "ndvi", 2)
+        plt.figure(figsize=(12,10))
+        plt.imshow(ndvi_plot, cmap=Polariks_cmap)
+        plt.colorbar()
+        plt.title("NDVI")
+        plt.savefig(path_to_img)
 
         # write image to file using imageio's imwrite
         d_print("Writing to file...", 1)
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 1)
         imwrite(path_to_img, rescaled)
-        path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 0)
-        imwrite(path_to_img, rescaled2)
-        path_to_img = "{}/img/{}{}.tif".format(os.getcwd(), "ndvi", 2)
-        imwrite(path_to_img, cm)
 
         # turn on the growth lighting
         d_print("Turning on growth lighting...", 1)
@@ -158,7 +181,7 @@ class NIR_ROUTINES(object):
         """
         Make a photo in the nir and the red spectrum and overlay to obtain ndvi.
 
-        :return: path to the ndvi image
+        :return: average ndvi value
         """
 
         # turn off the growth lighting
