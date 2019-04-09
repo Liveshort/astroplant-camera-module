@@ -20,11 +20,12 @@ from cam.camera import *
 from cam.calibration_routines import *
 from cam.visible_routines import *
 from cam.nir_routines import *
-from cam.camera_commands import *
+from cam.camera_commands import CCT
 from cam.debug_print import *
+from cam.light_channels import LC
 
 class PI_CAM_NOIR_V21(Camera):
-    def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
+    def __init__(self, *args, pi, light_pins, growth_light_control, light_control, light_channels, **kwargs):
         """
         Initialize an object that contains the visible routines.
         Link the pi and gpio pins necessary and provide a function that controls the growth lighting.
@@ -35,7 +36,7 @@ class PI_CAM_NOIR_V21(Camera):
         """
 
         # set up the camera super class
-        super().__init__(pi = pi, light_pins = light_pins, growth_light_control = growth_light_control)
+        super().__init__(pi = pi, light_pins = light_pins, growth_light_control = growth_light_control, light_control = light_control, light_channels = light_channels)
 
         # give the camera a unique ID per brand/kind/etc, software uses this ID to determine whether the
         # camera is calibrated or not
@@ -63,11 +64,6 @@ class PI_CAM_NOIR_V21(Camera):
         self.iso = 200
         self.exposure_mode = "off"
         self.exposure_compensation = 0
-
-        # set up calibration routines
-        self.cal = CALIBRATION_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
-        # pass self (a camera object) to the calibration routine
-        self.cal.set_camera(self)
 
         # set up visible routines
         self.vis = VISIBLE_ROUTINES(pi = self.pi, light_pins = self.light_pins, growth_light_control = self.growth_light_control)
@@ -104,6 +100,58 @@ class PI_CAM_NOIR_V21(Camera):
         d_print("Done.", 1)
 
         return 0
+
+    def capture2(self, channel: LC, lights_off):
+        """
+        Function that captures an image. Sets up the sensor and its settings,
+        lets it settle and takes a picture, returns the array to the user.
+
+        :param channel: channel of light in which the photo is taken, used for white balance and gain values
+        :param lights_off: function with no parameters that turns off the appropriate light for dark frame capture
+        :return: 8 bit rgb array containing the image
+        """
+
+        d_print("Warming up camera sensor...", 1)
+
+        with picamera.PiCamera() as sensor:
+            # set up the sensor with all its settings
+            sensor.resolution = self.resolution
+            sensor.rotation = self.camera_cfg["rotation"]
+            sensor.framerate = self.framerate
+            sensor.shutter_speed = self.shutter_speed
+            #sensor.iso = self.iso
+            sensor.awb_mode = "off"
+            sensor.awb_gains = (self.camera_cfg["wb"][channel]["r"], self.camera_cfg["wb"][channel]["b"])
+            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
+            time.sleep(20)
+            sensor.exposure_mode = self.exposure_mode
+            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
+
+            # save the total gain of the sensor for this photo
+            gain = sensor.analog_gain*sensor.digital_gain
+
+            # record camera data to array, also get dark frame
+            with picamera.array.PiRGBArray(sensor) as output:
+                # capture a lit frame
+                output.truncate(0)
+                sensor.capture(output, 'rgb')
+                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                rgb = np.copy(output.array)
+
+                lights_off()
+
+                # also capture a dark frame
+                output.truncate(0)
+                sensor.capture(output, 'rgb')
+                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
+                dark = np.copy(output.array)
+
+            # perform dark frame subtraction
+            rgb = cv2.subtract(rgb, dark)
+
+        d_print("Done.", 1)
+
+        return (rgb, gain)
 
     def capture(self, set_light, after_exposure_lock_callback, wb_channel):
         """
@@ -322,71 +370,73 @@ class PI_CAM_NOIR_V21(Camera):
 
         return (rgb, gain)
 
-    def calibrate_white_balance(self, channel):
+    def calibrate_white_balance(self):
         """
         Function that calibrates the white balance for certain lighting specified in the channel parameter. This is camera specific, so it needs to be specified for each camera.
-
-        :param channel: string of the color channel that is calibrated
-        :return: 0 for success
         """
 
         d_print("Warming up camera sensor...", 1)
 
-        if channel == "flood-white" or channel == "spot-white" or channel == "nir":
-            with picamera.PiCamera() as sensor:
-                # set up the sensor with all its settings
-                sensor.resolution = self.resolution
-                sensor.rotation = self.camera_cfg["rotation"]
-                sensor.framerate = self.framerate
-                sensor.shutter_speed = self.shutter_speed
-                #sensor.iso = self.iso
-                d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-                time.sleep(10)
-                sensor.exposure_mode = self.exposure_mode
-                sensor.awb_mode = "off"
-                d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
+        for channel in self.light_channels:
+            # turn on channel light
+            self.light_control(channel, 1)
 
-                # set up the blue and red gains
-                rg, bg = (1.2, 1.2)
-                sensor.awb_gains = (rg, bg)
+            if channel == LC.WHITE or channel == LC.NIR:
+                with picamera.PiCamera() as sensor:
+                    # set up the sensor with all its settings
+                    sensor.resolution = self.resolution
+                    sensor.rotation = self.camera_cfg["rotation"]
+                    sensor.framerate = self.framerate
+                    sensor.shutter_speed = self.shutter_speed
+                    #sensor.iso = self.iso
+                    d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
+                    time.sleep(10)
+                    sensor.exposure_mode = self.exposure_mode
+                    sensor.awb_mode = "off"
+                    d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
 
-                # record camera data to array and scale up a numpy array
-                #rgb = np.zeros((1216,1216,3), dtype=np.uint16)
-                with picamera.array.PiRGBArray(sensor) as output:
-                    # capture images and analyze until convergence
-                    for i in range(30):
-                        output.truncate(0)
-                        sensor.capture(output, 'rgb')
-                        rgb = np.copy(output.array)
+                    # set up the blue and red gains
+                    rg, bg = (1.2, 1.2)
+                    sensor.awb_gains = (rg, bg)
 
-                        crop = rgb[508:708,666:966,:]
+                    # record camera data to array and scale up a numpy array
+                    #rgb = np.zeros((1216,1216,3), dtype=np.uint16)
+                    with picamera.array.PiRGBArray(sensor) as output:
+                        # capture images and analyze until convergence
+                        for i in range(30):
+                            output.truncate(0)
+                            sensor.capture(output, 'rgb')
+                            rgb = np.copy(output.array)
 
-                        r, g, b = (np.mean(crop[..., i]) for i in range(3))
-                        print("rg: {:4.3f} bg: {:4.3f} --- ({:4.1f}, {:4.1f}, {:4.1f})".format(rg, bg, r, g, b))
+                            crop = rgb[508:708,666:966,:]
 
-                        if abs(r - g) > 1:
-                            if r > g:
-                                rg -= 0.025
-                            else:
-                                rg += 0.025
-                        if abs(b - g) > 1:
-                            if b > g:
-                                bg -= 0.025
-                            else:
-                                bg += 0.025
+                            r, g, b = (np.mean(crop[..., i]) for i in range(3))
+                            print("rg: {:4.3f} bg: {:4.3f} --- ({:4.1f}, {:4.1f}, {:4.1f})".format(rg, bg, r, g, b))
 
-                        path_to_img = "{}/tst/{}{}.jpg".format(os.getcwd(), "wb", i)
-                        imwrite(path_to_img, crop)
+                            if abs(r - g) > 1:
+                                if r > g:
+                                    rg -= 0.025
+                                else:
+                                    rg += 0.025
+                            if abs(b - g) > 1:
+                                if b > g:
+                                    bg -= 0.025
+                                else:
+                                    bg += 0.025
 
-                        sensor.awb_gains = (rg, bg)
-        else:
-            rg = 1.3
-            bg = 1.6
+                            path_to_img = "{}/tst/{}{}.jpg".format(os.getcwd(), "wb", i)
+                            imwrite(path_to_img, crop)
 
-        self.camera_cfg["wb"][channel] = dict()
-        self.camera_cfg["wb"][channel]["r"] = rg
-        self.camera_cfg["wb"][channel]["b"] = bg
+                            sensor.awb_gains = (rg, bg)
+            else:
+                rg = 1.3
+                bg = 1.6
+
+            # turn off channel light
+            self.light_control(channel, 0)
+
+            self.camera_cfg["wb"][channel] = dict()
+            self.camera_cfg["wb"][channel]["r"] = rg
+            self.camera_cfg["wb"][channel]["b"] = bg
 
         d_print("Done.", 1)
-
-        return 0

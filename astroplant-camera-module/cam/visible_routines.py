@@ -42,8 +42,8 @@ class VISIBLE_ROUTINES(object):
         self.growth_light_control(GrowthLightControl.OFF)
 
         # capture image in a square rgb array
-        set_light = set_light_curry(self.pi, self.light_pins["flood-white"])
-        rgb, gain = self.camera.capture(set_light, empty_callback, "flood-white")
+        set_light = set_light_curry(self.pi, self.light_pins["white"])
+        rgb, gain = self.camera.capture(set_light, empty_callback, "white")
 
         # crop the sensor readout
         rgb = rgb[self.camera.camera_cfg["y_min"]:self.camera.camera_cfg["y_max"], self.camera.camera_cfg["x_min"]:self.camera.camera_cfg["x_max"], :]

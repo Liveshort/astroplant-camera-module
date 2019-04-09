@@ -88,8 +88,8 @@ class NIR_ROUTINES(object):
         r = rgb_r[:,:,0]
 
         # apply flatfield mask
-        mask = self.camera.camera_cfg["ff"]["red"]
-        Rr = 0.8*self.camera.camera_cfg["gain"]["red"]/gain*np.divide(r, mask)
+        mask = self.camera.camera_cfg["ff"]["value"]["red"]
+        Rr = 0.8*self.camera.camera_cfg["ff"]["gain"]["red"]/gain*np.divide(r, mask)
 
         # crop the sensor readout
         rgb_nir = rgb_nir[self.camera.camera_cfg["y_min"]:self.camera.camera_cfg["y_max"], self.camera.camera_cfg["x_min"]:self.camera.camera_cfg["x_max"], :]
@@ -97,8 +97,8 @@ class NIR_ROUTINES(object):
         v = hsv[:,:,2]
 
         # apply flatfield mask
-        mask = self.camera.camera_cfg["ff"]["nir"]
-        Rnir = 0.8*self.camera.camera_cfg["gain"]["nir"]/gain*np.divide(v, mask)
+        mask = self.camera.camera_cfg["ff"]["value"]["nir"]
+        Rnir = 0.8*self.camera.camera_cfg["ff"]["gain"]["nir"]/gain*np.divide(v, mask)
 
         # save the value part np array to file so it can be loaded later
         path_to_field = "{}/res/{}.field".format(os.getcwd(), "red")

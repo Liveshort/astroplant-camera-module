@@ -2,9 +2,9 @@
 File that contains an overview of the commands that the camera accepts, grouped by kind.
 """
 
-class CameraCommandType(object):
+class CCT(object):
     """
-    Class holding the possible types of commands that can be performed by the camera.
+    (C)amera(C)ommand(T)ype: Class holding the possible types of commands that can be performed by the camera.
     """
 
     # regular photo (visible spectrum: ~400-700 nm, color balanced)

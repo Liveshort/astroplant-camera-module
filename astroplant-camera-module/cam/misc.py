@@ -12,6 +12,12 @@ def set_light_curry(pi, pin):
 
     return set_pin_state
 
+def lights_off_curry(channel, light_control):
+    def lights_off():
+        light_control(channel, 0)
+
+    return lights_off
+
 # ask user to put something white and diffuse in the kit
 def place_object_in_kit():
     print("Please remove the plant container and place a white diffuse surface on the bottom plate of the kit and place a small object in the center of the spot of the light and close the kit.")

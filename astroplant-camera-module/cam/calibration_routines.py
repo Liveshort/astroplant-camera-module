@@ -11,6 +11,7 @@ from imageio import imwrite
 from .growth_light_control import *
 from .debug_print import *
 from .misc import empty_callback, set_light_curry, place_object_in_kit, remove_object_from_kit_callback
+from .light_channels import LC
 
 class CALIBRATION_ROUTINES(object):
     def __init__(self, *args, pi, light_pins, growth_light_control, **kwargs):
