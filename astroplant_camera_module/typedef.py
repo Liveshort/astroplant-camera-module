@@ -12,19 +12,13 @@ class CC(object):
     # leaf mask (should produce a black/white mask that masks out the leaves)
     LEAF_MASK = "LEAF_MASK"
 
-    # visible leaf area from above (does not correct for leaves on top of each other)
-    LEAF_AREA_STACKED = "LEAF_AREA_STACKED"
-    # plant size along major axis
-    PLANT_SIZE_MAJOR = "PLANT_SIZE_MAJOR"
-    # plant size along minor axis
-    PLANT_SIZE_MINOR = "PLANT_SIZE_MINOR"
-    # circumference of the bounding box of the plant
-    PLANT_SIZE_BOUNDING_BOX = "PLANT_SIZE_BOUNDING_BOX"
     # averaged ndvi value of the plant (all material with ndvi > 0.2)
     NDVI = "NDVI"
 
     # calibrate the camera and the lights
     CALIBRATE = "CALIBRATE"
+    # update camera settings if camera needs this (for example, redetermine gains etc)
+    UPDATE = "UPDATE"
 
 
 class LC(object):

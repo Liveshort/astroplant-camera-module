@@ -18,3 +18,6 @@ def check_directories():
 
     if not os.path.isdir(camdir + "/res"):
         os.mkdir(camdir + "/res")
+
+    if not os.path.isdir(camdir + "/tmp"):
+        os.mkdir(camdir + "/tmp")

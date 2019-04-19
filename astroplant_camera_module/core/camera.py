@@ -29,6 +29,7 @@ class CAMERA(object):
 
         self.CAM_ID = 0
         self.NDVI_CAPABLE = False
+        self.HAS_UPDATE = False
         self.CALIBRATED = False
 
         self.light_control = light_control
@@ -46,19 +47,49 @@ class CAMERA(object):
             return self.photo(LC.NIR)
         elif command == CC.CALIBRATE:
             self.calibrate()
+        elif command == CC.UPDATE and self.HAS_UPDATE and self.CALIBRATED:
+            self.update()
         else:
-            d_print("Camera is unable to perform command '{}', is it calibrated? ({})\n\tRun [cam].state() to check current camera and lighting status...\n\tReturning empty...".format(command, self.CALIBRATED), 3)
+            d_print("Camera is unable to perform command '{}', is it calibrated? ({})\n    Run [cam].state() to check current camera and lighting status...\n    Returning empty...".format(command, self.CALIBRATED), 3)
             return ""
 
 
     @abc.abstractmethod
-    def capture(self, set_light, after_exposure_lock_callback, wb_channel):
+    def capture(self, channel):
         raise NotImplementedError()
 
 
     @abc.abstractmethod
     def calibrate_white_balance(self, channel):
         raise NotImplementedError()
+
+
+    @abc.abstractmethod
+    def update(self):
+        raise NotImplementedError()
+
+
+    @abc.abstractmethod
+    def calibrate_specific(self):
+        raise NotImplementedError()
+
+
+    def save_config_to_file(self):
+        """
+        Save camera configuration to file.
+        """
+
+        with open("{}/cam/cfg/config.json".format(os.getcwd()), 'w') as f:
+            json.dump(self.config, f, indent=4, sort_keys=True)
+
+
+    def load_config_from_file(self):
+        """
+        Load camera configuration from file.
+        """
+
+        with open("{}/cam/cfg/config.json".format(os.getcwd()), 'r') as f:
+            self.config = json.load(f)
 
 
     def photo(self, channel: LC):
@@ -107,9 +138,10 @@ class CAMERA(object):
             self.calibrate_white_balance(channel)
             self.calibrate_flatfield_gains(channel)
 
+        self.calibrate_specific()
+
         # write the configuration to file
-        with open("{}/cam/cfg/cam_config.json".format(os.getcwd()), 'w') as f:
-            json.dump(self.config, f, indent=4, sort_keys=True)
+        self.save_config_to_file()
 
         self.CALIBRATED = True
 
@@ -173,6 +205,7 @@ class CAMERA(object):
         print("\nCamera properties:")
         print("    CAM_ID:        {}".format(self.CAM_ID))
         print("    NDVI_CAPABLE:  {}".format(self.NDVI_CAPABLE))
+        print("    HAS_UPDATE:    {}".format(self.HAS_UPDATE))
         print("    CALIBRATED:    {}".format(self.CALIBRATED))
 
         print("\nConnections:")
