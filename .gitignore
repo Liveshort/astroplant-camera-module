@@ -5,9 +5,9 @@
 __pycache__/
 
 # ignore images
-astroplant-camera-module/img/*
+tests/cam/img/*
 # ...but keep the folder
-!astroplant-camera-module/img/.gitkeep
+!tests/cam/img/.gitkeep
 
 # ignore experimentation folder
 foo/
