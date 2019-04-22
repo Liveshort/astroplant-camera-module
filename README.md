@@ -26,6 +26,7 @@ class LC(object):
 In the case where the pigpio module is used, the function can be constructed in the script using the camera like this:
 ```python3
 import pigpio
+import time
 from astroplant_camera_module.typedef import CC, LC
 
 def light_control_curry(pi):
@@ -71,7 +72,7 @@ class CC(object):
 
     # regular photo (visible spectrum: ~400-700 nm, color balanced)
     REGULAR_PHOTO = "REGULAR_PHOTO"
-    # NDVI photo (NIR vs red spectrum: ~850 nm vs ~630 nm, calibrated to sunlight)
+    # NDVI photo (NIR vs red spectrum: ~850 nm vs ~630 nm)
     NDVI_PHOTO = "NDVI_PHOTO"
     # NIR photo (NIR spectrum: ~850 nm)
     NIR_PHOTO = "NIR_PHOTO"
