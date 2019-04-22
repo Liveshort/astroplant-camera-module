@@ -28,6 +28,7 @@ In the case where the pigpio module is used, the function can be constructed in 
 import pigpio
 import time
 from astroplant_camera_module.typedef import CC, LC
+from astroplant_camera_module.misc.debug_print import d_print
 
 def light_control_curry(pi):
     def light_control(channel: LC, state):
