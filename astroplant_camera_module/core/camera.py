@@ -69,11 +69,6 @@ class CAMERA(object):
         raise NotImplementedError()
 
 
-    @abc.abstractmethod
-    def calibrate_specific(self):
-        raise NotImplementedError()
-
-
     def save_config_to_file(self):
         """
         Save camera configuration to file.
@@ -133,12 +128,14 @@ class CAMERA(object):
 
         d_print("Starting calibration...", 1)
 
+        # first adjust the crop
         self.calibrate_crop()
+        # calibrate all white balances
         for channel in self.light_channels:
             self.calibrate_white_balance(channel)
+        # calibrate the gains
+        for channel in self.light_channels:
             self.calibrate_flatfield_gains(channel)
-
-        self.calibrate_specific()
 
         # write the configuration to file
         self.save_config_to_file()
@@ -191,7 +188,7 @@ class CAMERA(object):
             # extract the red channel
             v = rgb[:,:,0]
         else:
-            d_print("unknown channel {}".format(channel), 3)
+            d_print("unknown channel {}, cannot extract value, returning black matrix...".format(channel), 3)
             v = np.zeros([10, 10])
 
         return v

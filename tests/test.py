@@ -47,6 +47,7 @@ if __name__ == "__main__":
     cam = PI_CAM_NOIR_V21(light_control = light_control, light_channels = light_channels, settings = settings)
 
     cam.do(CC.CALIBRATE)
+    cam.do(CC.UPDATE)
     print(cam.do(CC.REGULAR_PHOTO))
     print(cam.do(CC.NDVI_PHOTO))
 

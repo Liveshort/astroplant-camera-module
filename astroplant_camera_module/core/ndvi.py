@@ -10,6 +10,7 @@ import matplotlib.colors as colors
 from imageio import imwrite
 
 from astroplant_camera_module.misc.debug_print import d_print
+from astroplant_camera_module.typedef import LC
 
 
 def empty_callback():
@@ -43,7 +44,8 @@ class NDVI(object):
         """
 
         # capture images in a square rgb array
-        rgb_r, rgb_nir, gain = self.camera.capture_duo(empty_callback, "red", "nir")
+        rgb_r, gain_r = self.camera.capture(LC.RED)
+        rgb_nir, gain_nir = self.camera.capture(LC.NIR)
 
         # crop the sensor readout
         rgb_r = rgb_r[self.camera.config["y_min"]:self.camera.config["y_max"], self.camera.config["x_min"]:self.camera.config["x_max"], :]
@@ -51,7 +53,7 @@ class NDVI(object):
 
         # apply flatfield mask
         mask = self.camera.config["ff"]["value"]["red"]
-        Rr = 0.8*self.camera.config["ff"]["gain"]["red"]/gain*np.divide(r, mask)
+        Rr = 0.8*self.camera.config["ff"]["gain"]["red"]/gain_r*np.divide(r, mask)
 
         # crop the sensor readout
         rgb_nir = rgb_nir[self.camera.config["y_min"]:self.camera.config["y_max"], self.camera.config["x_min"]:self.camera.config["x_max"], :]
@@ -60,7 +62,7 @@ class NDVI(object):
 
         # apply flatfield mask
         mask = self.camera.config["ff"]["value"]["nir"]
-        Rnir = 0.8*self.camera.config["ff"]["gain"]["nir"]/gain*np.divide(v, mask)
+        Rnir = 0.8*self.camera.config["ff"]["gain"]["nir"]/gain_nir*np.divide(v, mask)
 
         # save the value part np array to file so it can be loaded later
         path_to_field = "{}/cam/res/{}.field".format(os.getcwd(), "red")

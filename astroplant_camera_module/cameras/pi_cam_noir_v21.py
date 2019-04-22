@@ -32,9 +32,9 @@ class SETTINGS_V5(object):
         self.framerate[LC.WHITE] = Fraction(10, 3)
 
         self.shutter_speed = dict()
-        self.shutter_speed[LC.RED] = 250000
-        self.shutter_speed[LC.NIR] = 400000
-        self.shutter_speed[LC.WHITE] = 300000
+        self.shutter_speed[LC.RED] = 300000
+        self.shutter_speed[LC.NIR] = 500000
+        self.shutter_speed[LC.WHITE] = 350000
 
         self.exposure_mode = "off"
         self.exposure_compensation = 0
@@ -81,12 +81,6 @@ class PI_CAM_NOIR_V21(CAMERA):
 
         self.settings = settings
 
-        self.resolution = (1632,1216)
-        self.framerate = Fraction(10, 3)
-        self.shutter_speed = 300000
-        self.exposure_mode = "off"
-        self.exposure_compensation = 0
-
         # set up ndvi routines
         self.ndvi = NDVI(camera = self)
 
@@ -95,6 +89,10 @@ class PI_CAM_NOIR_V21(CAMERA):
         """
         Function that updates the gains needed to expose the image correctly. Saves it to the configuration file.
         """
+
+        # check if gain information is available, if not, update config
+        if "d2d" not in self.config:
+            self.setup_d2d()
 
         for channel in self.light_channels:
             # turn on the light
@@ -114,19 +112,22 @@ class PI_CAM_NOIR_V21(CAMERA):
                 time.sleep(30)
 
                 sensor.exposure_mode = self.settings.exposure_mode
-                self.config["d2d"][channel]["analog-gain"] = sensor.analog_gain
-                self.config["d2d"][channel]["digital-gain"] = sensor.digital_gain
+                self.config["d2d"][channel]["analog-gain"] = float(sensor.analog_gain)
+                self.config["d2d"][channel]["digital-gain"] = float(sensor.digital_gain)
 
                 d_print("Saved ag: {} and dg: {} for channel {}".format(sensor.analog_gain, sensor.digital_gain, channel), 1)
 
             # turn the light off
             self.light_control(channel, 0)
 
+        # update timestamp
+        self.config["d2d"]["timestamp"] = time.time()
+
         # save the new configuration to file
         self.save_config_to_file()
 
 
-    def capture_bash(self, channel: LC):
+    def capture(self, channel: LC):
         """
         Function that captures an image. Uses raspistill in a separate terminal process to take the picture. This is faster due to the possibility to manually set the gains of the camera, something that is not possible in picamera 1.13 (but will probably be in version 1.14 or 1.15).
 
@@ -134,20 +135,25 @@ class PI_CAM_NOIR_V21(CAMERA):
         :return: 8 bit rgb array containing the image
         """
 
+        # check if gain information is available, if not, update first
+        if "d2d" not in self.config:
+            self.setup_d2d()
+            self.update()
+
         # turn on the light
         self.light_control(channel, 1)
 
         # assemble the terminal command
-        path_to_bright = os.getcwd() + "/tmp/bright.bmp"
-        path_to_dark = os.getcwd() + "/tmp/dark.bmp"
+        path_to_bright = os.getcwd() + "/cam/tmp/bright.bmp"
+        path_to_dark = os.getcwd() + "/cam/tmp/dark.bmp"
         gain = self.config["d2d"][channel]["analog-gain"] * self.config["d2d"][channel]["digital-gain"]
 
-        photo_cmd = "raspistill -e bmp -w {} -h {} -ss {} -t 2000 -awb off -awbg {},{} -ex off -ag {} -dg {} -set".format(self.settings.resolution[0], self.settings.resolution[1], self.settings.shutter_speed[channel], self.config["wb"][channel]["r"], self.config["wb"][channel]["b"], self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"])
+        photo_cmd = "raspistill -e bmp -w {} -h {} -ss {} -t 1000 -awb off -awbg {},{} -ex off -ag {} -dg {} -set".format(self.settings.resolution[0], self.settings.resolution[1], self.settings.shutter_speed[channel], self.config["wb"][channel]["r"], self.config["wb"][channel]["b"], self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"])
 
         # run command and take bright and dark picture
-        subprocess.run(photo_cmd + " -o {}".format(path_to_bright), shell=True, timeout=5)
+        subprocess.run(photo_cmd + " -o {}".format(path_to_bright), shell=True, timeout=10)
         self.light_control(channel, 0)
-        subprocess.run(photo_cmd + " -o {}".format(path_to_dark), shell=True, timeout=5)
+        subprocess.run(photo_cmd + " -o {}".format(path_to_dark), shell=True, timeout=10)
 
         # load the images from file, perform dark frame subtraction and return the array
         bright = Image.open(path_to_bright)
@@ -155,141 +161,11 @@ class PI_CAM_NOIR_V21(CAMERA):
         dark = Image.open(path_to_dark)
         rgb = cv2.subtract(rgb, np.array(dark))
 
-        return (rgb, gain)
-
-
-    def capture(self, channel: LC):
-        """
-        Function that captures an image. Sets up the sensor and its settings,
-        lets it settle and takes a picture, returns the array to the user.
-
-        :param channel: channel of light in which the photo is taken, used for white balance and gain values
-        :return: 8 bit rgb array containing the image
-        """
-
-        # turn on the light
-        self.light_control(channel, 1)
-
-        d_print("Warming up camera sensor...", 1)
-
-        with picamera.PiCamera() as sensor:
-            # set up the sensor with all its settings
-            sensor.resolution = self.resolution
-            sensor.rotation = self.config["rotation"]
-            sensor.framerate = self.framerate
-            sensor.shutter_speed = self.shutter_speed
-            #sensor.iso = self.iso
-            sensor.awb_mode = "off"
-            sensor.awb_gains = (self.config["wb"][channel]["r"], self.config["wb"][channel]["b"])
-            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-            time.sleep(20)
-            sensor.exposure_mode = self.exposure_mode
-            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-
-            # save the total gain of the sensor for this photo
-            gain = sensor.analog_gain*sensor.digital_gain
-
-            # record camera data to array, also get dark frame
-            with picamera.array.PiRGBArray(sensor) as output:
-                # capture a lit frame
-                output.truncate(0)
-                sensor.capture(output, 'rgb')
-                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                rgb = np.copy(output.array)
-
-                # turn off the light
-                self.light_control(channel, 0)
-
-                # also capture a dark frame
-                output.truncate(0)
-                sensor.capture(output, 'rgb')
-                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                dark = np.copy(output.array)
-
-            # perform dark frame subtraction
-            rgb = cv2.subtract(rgb, dark)
-
-        d_print("Done.", 1)
+        # if the time since last update is larger than a day, update the gains after the photo
+        if time.time() - self.config["d2d"]["timestamp"] > 3600*24:
+            self.update()
 
         return (rgb, gain)
-
-
-    def capture_duo(self, after_exposure_lock_callback, wb_channel_0, wb_channel_1):
-        """
-        Function that captures an image. Sets up the sensor and its settings,
-        lets it settle and takes a picture, returns the array to the user.
-
-        :param set_light: function that when called with 0 as parameter turns off the appropriate lights
-            and when called with 1 as parameter turns it back on
-        :param after_exposure_lock_callback: function that is called after the exposure is locked, no
-            parameters, no return value
-        :return: 8 bit rgb array containing the image
-        """
-
-        # turn on the light
-        self.light_control(LC.RED, 1)
-
-        d_print("Warming up camera sensor...", 1)
-
-        with picamera.PiCamera() as sensor:
-            # set up the sensor with all its settings
-            sensor.resolution = self.resolution
-            sensor.rotation = self.config["rotation"]
-            sensor.framerate = self.framerate
-            sensor.shutter_speed = self.shutter_speed
-            #sensor.iso = self.iso
-            sensor.awb_mode = "off"
-            sensor.awb_gains = (self.config["wb"][wb_channel_0]["r"], self.config["wb"][wb_channel_0]["b"])
-            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-            time.sleep(10)
-            sensor.exposure_mode = self.exposure_mode
-            d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-
-            # save the total gain of the sensor for this photo
-            gain = sensor.analog_gain*sensor.digital_gain
-
-            # do the after exposure lock callback, in case something needs to be performed here
-            after_exposure_lock_callback()
-
-            # record camera data to array, also get dark frame
-            #rgb = np.zeros((1216,1216,3), dtype=np.uint8)
-            #dark = np.zeros((1216,1216,3), dtype=np.uint8)
-            with picamera.array.PiRGBArray(sensor) as output:
-                # capture a lit frame
-                output.truncate(0)
-                sensor.capture(output, 'rgb')
-                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                rgb_0 = np.copy(output.array)
-
-                # turn off the first light
-                self.light_control(LC.RED, 0)
-
-                # capture a dark frame
-                output.truncate(0)
-                sensor.capture(output, 'rgb')
-                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                dark = np.copy(output.array)
-
-                # set new white balance, turn on the second light
-                sensor.awb_gains = (self.config["wb"][wb_channel_1]["r"], self.config["wb"][wb_channel_1]["b"])
-                self.light_control(LC.NIR, 1)
-
-                # capture the second frame
-                output.truncate(0)
-                sensor.capture(output, 'rgb')
-                d_print("    Captured {}x{} image".format(output.array.shape[1], output.array.shape[0]), 1)
-                rgb_1 = np.copy(output.array)
-
-            # turn off the second light
-            self.light_control(LC.NIR, 0)
-
-            # perform dark frame subtraction
-            rgb_0 = cv2.subtract(rgb_0, dark)
-            rgb_1 = cv2.subtract(rgb_1, dark)
-
-        d_print("Done.", 1)
-
-        return (rgb_0, rgb_1, gain)
 
 
     def calibrate_white_balance(self, channel: LC):
@@ -309,17 +185,17 @@ class PI_CAM_NOIR_V21(CAMERA):
                 # set up the sensor with all its settings
                 sensor.resolution = (128, 80)
                 sensor.rotation = self.config["rotation"]
-                sensor.framerate = self.framerate
-                sensor.shutter_speed = self.shutter_speed
-                d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
-                time.sleep(10)
-                sensor.exposure_mode = self.exposure_mode
-                sensor.awb_mode = "off"
-                d_print("{} {} {}".format(sensor.exposure_speed, sensor.analog_gain, sensor.digital_gain), 1)
+                sensor.framerate = self.settings.framerate[channel]
+                sensor.shutter_speed = self.settings.shutter_speed[channel]
 
                 # set up the blue and red gains
-                rg, bg = (1.2, 1.2)
+                sensor.awb_mode = "off"
+                rg, bg = (1.1, 1.1)
                 sensor.awb_gains = (rg, bg)
+
+                # now sleep and lock exposure
+                time.sleep(20)
+                sensor.exposure_mode = self.settings.exposure_mode
 
                 # record camera data to array and scale up a numpy array
                 #rgb = np.zeros((1216,1216,3), dtype=np.uint16)
@@ -365,7 +241,7 @@ class PI_CAM_NOIR_V21(CAMERA):
         d_print("Done.", 1)
 
 
-    def calibrate_specific(self):
+    def setup_d2d(self):
         """
         Function that gets called at the end of the calibration process. It allows cameras to perform other steps next to the prescribed steps from the camera prototype.
         """
@@ -374,16 +250,18 @@ class PI_CAM_NOIR_V21(CAMERA):
 
         self.config["d2d"][LC.WHITE] = dict()
 
-        self.config["d2d"][LC.WHITE]["analog-gain"] = self.config["ff"]["gain"][LC.WHITE]
+        self.config["d2d"][LC.WHITE]["analog-gain"] = 1.0
         self.config["d2d"][LC.WHITE]["digital-gain"] = 1.0
 
         if self.NDVI_CAPABLE:
             self.config["d2d"][LC.RED] = dict()
             self.config["d2d"][LC.NIR] = dict()
 
-            self.config["d2d"][LC.RED]["analog-gain"] = self.config["ff"]["gain"][LC.RED]
-            self.config["d2d"][LC.NIR]["analog-gain"] = self.config["ff"]["gain"][LC.NIR]
+            self.config["d2d"][LC.RED]["analog-gain"] = 1.0
+            self.config["d2d"][LC.NIR]["analog-gain"] = 1.0
             self.config["d2d"][LC.RED]["digital-gain"] = 1.0
             self.config["d2d"][LC.NIR]["digital-gain"] = 1.0
 
         self.config["d2d"]["timestamp"] = time.time()
+
+        self.save_config_to_file()
