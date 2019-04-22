@@ -7,7 +7,7 @@ from astroplant_camera_module.typedef import CC, LC
 from astroplant_camera_module.cameras.pi_cam_noir_v21 import PI_CAM_NOIR_V21, SETTINGS_V5
 
 def light_control_curry(pi):
-    def light_control(channel, state):
+    def light_control(channel: LC, state):
         d_print("Setting {} camera lighting state to {}".format(channel, state), 1)
 
         if channel == LC.WHITE:
