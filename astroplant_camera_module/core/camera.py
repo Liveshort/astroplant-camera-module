@@ -18,7 +18,7 @@ from astroplant_camera_module.typedef import CC, LC
 from astroplant_camera_module.setup import check_directories
 
 class CAMERA(object):
-    def __init__(self, *args, light_control, light_channels, **kwargs):
+    def __init__(self, *args, light_control, **kwargs):
         """
         Initilize the parent camera object. Most of the routines are specified here, as well as the command tree of what to do with commands received from the user. Initializes some variables to a dummy state, which need to be overwritten explicitly by the child camera.
 
@@ -32,7 +32,6 @@ class CAMERA(object):
         self.CALIBRATED = False
 
         self.light_control = light_control
-        self.light_channels = light_channels
 
         # check and set up the necessary directories
         check_directories()

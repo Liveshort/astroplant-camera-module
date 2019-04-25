@@ -15,7 +15,6 @@ from fractions import Fraction
 from PIL import Image
 
 from astroplant_camera_module.core.camera import CAMERA
-from astroplant_camera_module.core.ndvi import NDVI
 from astroplant_camera_module.misc.debug_print import d_print
 from astroplant_camera_module.typedef import LC
 from astroplant_camera_module.misc.helper import light_control_dummy
@@ -26,14 +25,10 @@ class SETTINGS_V5(object):
         self.resolution = (1632,1216)
 
         self.framerate = dict()
-        self.framerate[LC.RED] = Fraction(10, 3)
-        self.framerate[LC.NIR] = Fraction(10, 5)
         self.framerate[LC.WHITE] = Fraction(10, 4)
         self.framerate[LC.GROWTH] = 30
 
         self.shutter_speed = dict()
-        self.shutter_speed[LC.RED] = 300000
-        self.shutter_speed[LC.NIR] = 500000
         self.shutter_speed[LC.WHITE] = 400000
         self.shutter_speed[LC.GROWTH] = 4000
 
@@ -50,9 +45,6 @@ class SETTINGS_V5(object):
         self.crop["y_max"] = self.resolution[1]
 
         self.wb = dict()
-        self.wb[LC.RED] = dict()
-        self.wb[LC.RED]["r"] = 1.0
-        self.wb[LC.RED]["b"] = 1.0
         self.wb[LC.GROWTH] = dict()
         self.wb[LC.GROWTH]["r"] = 0.4
         self.wb[LC.GROWTH]["b"] = 0.575
@@ -60,7 +52,7 @@ class SETTINGS_V5(object):
         self.exposure_mode = "off"
         self.exposure_compensation = 0
 
-        self.allowed_channels = [LC.WHITE, LC.GROWTH, LC.RED, LC.NIR]
+        self.allowed_channels = [LC.WHITE, LC.GROWTH]
 
 
 class PI_CAM_NOIR_V21(CAMERA):
@@ -79,7 +71,7 @@ class PI_CAM_NOIR_V21(CAMERA):
 
         # give the camera a unique ID per brand/kind/etc, software uses this ID to determine whether the
         # camera is calibrated or not
-        self.CAM_ID = 1
+        self.CAM_ID = 2
         # enable update function to update gains
         self.HAS_UPDATE = True
 
@@ -91,10 +83,6 @@ class PI_CAM_NOIR_V21(CAMERA):
         for channel in light_channels:
             if channel in self.settings.allowed_channels:
                 self.light_channels.append(channel)
-
-        # check if NDVI can be handled by this camera/lighting combination
-        if LC.RED in self.light_channels and LC.NIR in self.light_channels:
-            self.NDVI_CAPABLE = True
 
         # load config file and check if it matches the cam id, if so, assume calibrated
         try:
@@ -108,9 +96,6 @@ class PI_CAM_NOIR_V21(CAMERA):
         except (EnvironmentError, ValueError):
             d_print("No suitable camera configuration file found!", 3)
             self.CALIBRATED = False
-
-        # set up ndvi routines
-        self.ndvi = NDVI(camera = self)
 
 
     def update(self):
@@ -141,33 +126,9 @@ class PI_CAM_NOIR_V21(CAMERA):
 
                 sensor.exposure_mode = self.settings.exposure_mode
 
-                # there is some non-linearity in the camera for higher pixel values when the gain gets large.
-                # currently, we fix this by limiting the gain to a maximum of 1.5 times the calibration gain.
-                # images will be a bit underexposed, but this can be expected for the red images anyway, since they
-                #     tend to be dark.
-                ag = float(sensor.analog_gain)
-                dg = float(sensor.digital_gain)
+                self.config["d2d"][channel]["analog-gain"] = float(sensor.analog_gain)
+                self.config["d2d"][channel]["digital-gain"] = float(sensor.digital_gain)
 
-                if self.CALIBRATED:
-                    if channel == LC.RED or channel == LC.NIR:
-                        if self.config["ff"]["gain"][channel]*1.5 < ag:
-                            self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*1.5
-                        elif self.config["ff"]["gain"][channel]*0.67 > ag:
-                            self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*0.67
-                        else:
-                            self.config["d2d"][channel]["analog-gain"] = ag
-                    else:
-                        self.config["d2d"][channel]["analog-gain"] = ag
-
-                    if dg > 1.7 and (channel == LC.RED or channel == LC.NIR):
-                        self.config["d2d"][channel]["digital-gain"] = 1.7
-                    else:
-                        self.config["d2d"][channel]["digital-gain"] = dg
-                else:
-                    self.config["d2d"][channel]["digital-gain"] = dg
-                    self.config["d2d"][channel]["analog-gain"] = ag
-
-                d_print("Measured ag: {} and dg: {} for channel {}".format(ag, dg, channel), 1)
                 d_print("Saved ag: {} and dg: {} for channel {}".format(self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"], channel), 1)
 
             # turn the light off
@@ -235,7 +196,7 @@ class PI_CAM_NOIR_V21(CAMERA):
         # turn on channel light
         self.light_control(channel, 1)
 
-        if channel == LC.WHITE or channel == LC.NIR:
+        if channel == LC.WHITE:
             with picamera.PiCamera() as sensor:
                 # set up the sensor with all its settings
                 sensor.resolution = (128, 80)
@@ -282,9 +243,6 @@ class PI_CAM_NOIR_V21(CAMERA):
         elif channel == LC.GROWTH:
             rg = self.settings.wb[LC.GROWTH]["r"]
             bg = self.settings.wb[LC.GROWTH]["b"]
-        else:
-            rg = self.settings.wb[LC.RED]["r"]
-            bg = self.settings.wb[LC.RED]["b"]
 
         # turn off channel light
         self.light_control(channel, 0)
@@ -310,15 +268,6 @@ class PI_CAM_NOIR_V21(CAMERA):
         self.config["d2d"][LC.WHITE]["digital-gain"] = 1.0
         self.config["d2d"][LC.GROWTH]["analog-gain"] = 1.0
         self.config["d2d"][LC.GROWTH]["digital-gain"] = 1.0
-
-        if self.NDVI_CAPABLE:
-            self.config["d2d"][LC.RED] = dict()
-            self.config["d2d"][LC.NIR] = dict()
-
-            self.config["d2d"][LC.RED]["analog-gain"] = 1.0
-            self.config["d2d"][LC.NIR]["analog-gain"] = 1.0
-            self.config["d2d"][LC.RED]["digital-gain"] = 1.0
-            self.config["d2d"][LC.NIR]["digital-gain"] = 1.0
 
         self.config["d2d"]["timestamp"] = time.time()
 
