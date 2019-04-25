@@ -41,6 +41,8 @@ class LC(object):
     WHITE = "white"
     RED = "red"
     NIR = "nir"
+
+    GROWTH = "growth"
 ```
 In the case where the pigpio module is used, the function can be constructed in the script using the camera like this:
 ```python3
