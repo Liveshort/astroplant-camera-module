@@ -31,7 +31,7 @@ def light_control(channel: LC, state):
     :return: empty
     """
 ```
-Note here that the light channels actually use a helper object to make sure that typos don't happen. All available channels can be found in the astroplant_camera_module/typedef.py file and are (at the moment of writing) as follows:
+Note here that the light channels actually use a helper object to ensure consistency. All available channels can be found in the astroplant_camera_module/typedef.py file and are (at the moment of writing) as follows:
 ```python3
 class LC(object):
     """
