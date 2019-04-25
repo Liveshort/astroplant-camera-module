@@ -4,7 +4,6 @@ import time
 from astroplant_camera_module.misc.debug_print import d_print
 from astroplant_camera_module.typedef import CC, LC
 from astroplant_camera_module.cameras.pi_cam_noir_v21 import PI_CAM_NOIR_V21, SETTINGS_V5
-
 from misc import set_all_lights_to_zero
 
 def light_control_curry(pi):
@@ -36,6 +35,7 @@ if __name__ == "__main__":
 
     cam = PI_CAM_NOIR_V21(light_control = light_control, light_channels = light_channels, settings = settings)
 
+    print(cam.CALIBRATED)
     cam.do(CC.CALIBRATE)
     cam.do(CC.UPDATE)
     print(cam.do(CC.WHITE_PHOTO))

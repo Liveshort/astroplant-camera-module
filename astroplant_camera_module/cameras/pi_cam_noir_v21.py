@@ -140,20 +140,27 @@ class PI_CAM_NOIR_V21(CAMERA):
                 ag = float(sensor.analog_gain)
                 dg = float(sensor.digital_gain)
 
-                if self.config["ff"]["gain"][channel]*1.5 < ag and (channel == LC.RED or channel == LC.NIR):
-                    self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*1.5
-                elif self.config["ff"]["gain"][channel]*0.67 > ag and (channel == LC.RED or channel == LC.NIR):
-                    self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*0.67
-                else:
-                    self.config["d2d"][channel]["analog-gain"] = ag
+                if self.CALIBRATED:
+                    if channel == LC.RED or channel == LC.NIR:
+                        if self.config["ff"]["gain"][channel]*1.5 < ag:
+                            self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*1.5
+                        elif self.config["ff"]["gain"][channel]*0.67 > ag:
+                            self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*0.67
+                        else:
+                            self.config["d2d"][channel]["analog-gain"] = ag
+                    else:
+                        self.config["d2d"][channel]["analog-gain"] = ag
 
-                if dg > 1.7 and (channel == LC.RED or channel == LC.NIR):
-                    self.config["d2d"][channel]["digital-gain"] = 1.7
+                    if dg > 1.7 and (channel == LC.RED or channel == LC.NIR):
+                        self.config["d2d"][channel]["digital-gain"] = 1.7
+                    else:
+                        self.config["d2d"][channel]["digital-gain"] = dg
                 else:
                     self.config["d2d"][channel]["digital-gain"] = dg
+                    self.config["d2d"][channel]["analog-gain"] = ag
 
-                d_print("Measured ag: {} and dg: {} for channel {}".format(ag, dg), 1)
-                d_print("Saved ag: {} and dg: {} for channel {}".format(self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"]), 1)
+                d_print("Measured ag: {} and dg: {} for channel {}".format(ag, dg, channel), 1)
+                d_print("Saved ag: {} and dg: {} for channel {}".format(self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"], channel), 1)
 
             # turn the light off
             self.light_control(channel, 0)

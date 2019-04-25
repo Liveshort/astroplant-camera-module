@@ -1,6 +1,25 @@
 # astroplant_camera_module documentation
-Python3 code for the camera module in the astroplant kit. Exposed workings can be found in the text folder. Short tl;dr:
-In order to create a camera object that actually does something, the module needs to know how to control the lights in the Astroplant kit. There are multiple ways to Rome here, so you as the user are asked to supply a function with the following characteristics:
+Python3 code for the camera module in the astroplant kit. Exposed workings can be found in the module folder. In order to be able to load the module, it has to be added to the PYTHONPATH variable. This can be done permanently, by adding the following line (correcting the folder location on your system) to the ~/.bashrc file:
+```bash
+# add astroplant camera module to python path
+export PYTHONPATH="${PYTHONPATH}:/home/pi/git/astroplant-camera-module"
+```
+## Module with growth lighting only (current V5 of the kit)
+Short tl;dr:
+When you simply want to take photos of your plant, you can use the camera in combination with the growth lighting. Note that for optimal results, growth lighting should be consistent when taking photo's, and set to a bright setting (all colors 75% for example). It is the responsibility of the user that the lighting is set up correctly when taking the photo, as this module cannot influence those settings. The only thing that needs to be loaded are the settings for the camera. This can be done as follows:
+```python3
+from astroplant_camera_module.cameras.pi_cam_noir_v21 import PI_CAM_NOIR_V21, SETTINGS_V5
+
+settings = SETTINGS_V5()
+```
+The actual camera object can then be loaded by calling:
+```python3
+cam = PI_CAM_NOIR_V21(settings = settings)
+```
+To see what commands can be called, scroll down below.
+## Module with seperate LED lights (NDVI measurements etc)
+Short tl;dr:
+In order to create a camera object that actually does something, the module needs to know how to control the lights in the Astroplant kit. Note that it is the responsibility of the user that the lighting is set up correctly when taking the photo, meaning that the growth lighting is off when commands are called. There are multiple ways to Rome here, so you as the user are asked to supply a function with the following characteristics:
 ```python3
 def light_control(channel: LC, state):
     """
@@ -64,6 +83,7 @@ Finally, you can make a camera object by creating an instance of the camera you 
 ```python3
 cam = PI_CAM_NOIR_V21(light_control = light_control, light_channels = light_channels, settings = settings)
 ```
+## Available commands
 All available commands are listed in the astroplant_camera_module/typedef.py file, under the CC object:
 ```python3
 class CC(object):

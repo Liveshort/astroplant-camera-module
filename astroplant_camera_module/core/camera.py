@@ -128,6 +128,8 @@ class CAMERA(object):
         # ask user to put something white and diffuse in the kit
         d_print("Assuming a white diffuse surface is placed at the bottom of the kit...", 1)
 
+        self.CALIBRATED = False
+
         # set up the camera config dict
         self.config = dict()
         self.config["cam_id"] = self.CAM_ID
