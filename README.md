@@ -1,5 +1,5 @@
-# astroplant_camera_module documentation
-Python3 code for the camera module in the astroplant kit. Exposed workings can be found in the module folder. In order to be able to load the module, it has to be added to the PYTHONPATH variable. This can be done permanently, by adding the following line (correcting the folder location on your system) to the ~/.bashrc file:
+# astroplant_camera_module readme
+Python3 code for the camera module in the astroplant kit. Exposed workings can be found in the module folder. In order to be able to load the module, it has to be added to the PYTHONPATH variable. This can be done permanently by adding the following line (correcting the folder location on your system) to the ~/.bashrc file:
 ```bash
 # add astroplant camera module to python path
 export PYTHONPATH="${PYTHONPATH}:/home/pi/git/astroplant-camera-module"
