@@ -1,10 +1,11 @@
-import asyncio
 import pigpio
 import time
 
 from astroplant_camera_module.misc.debug_print import d_print
 from astroplant_camera_module.typedef import CC, LC
 from astroplant_camera_module.cameras.pi_cam_noir_v21 import PI_CAM_NOIR_V21, SETTINGS_V5
+
+from misc import set_all_lights_to_zero
 
 def light_control_curry(pi):
     def light_control(channel: LC, state):
@@ -25,19 +26,8 @@ def light_control_curry(pi):
 
 if __name__ == "__main__":
     pi = pigpio.pi()
-    light_pins = {
-        "flood-white": 2,
-        "red": 3,
-        "nir": 4,
-        "white": 17,
-        "yellow": 27,
-        "blue": 22,
-        "green": 10
-    }
 
-    # set all lights to zero
-    for key, val in light_pins.items():
-        pi.write(val, 0)
+    set_all_lights_to_zero(pi)
 
     # set up parameters for the camera
     light_control = light_control_curry(pi)
@@ -48,7 +38,8 @@ if __name__ == "__main__":
 
     cam.do(CC.CALIBRATE)
     cam.do(CC.UPDATE)
-    print(cam.do(CC.REGULAR_PHOTO))
+    print(cam.do(CC.WHITE_PHOTO))
     print(cam.do(CC.NDVI_PHOTO))
+    print(cam.do(CC.GROWTH_PHOTO))
 
     cam.state()

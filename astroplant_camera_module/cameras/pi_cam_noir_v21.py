@@ -12,14 +12,13 @@ import numpy as np
 import subprocess
 
 from fractions import Fraction
-from imageio import imwrite
 from PIL import Image
 
 from astroplant_camera_module.core.camera import CAMERA
 from astroplant_camera_module.core.ndvi import NDVI
 from astroplant_camera_module.misc.debug_print import d_print
 from astroplant_camera_module.typedef import LC
-from astroplant_camera_module.setup import check_directories
+from astroplant_camera_module.misc.helper import light_control_dummy
 
 
 class SETTINGS_V5(object):
@@ -27,34 +26,54 @@ class SETTINGS_V5(object):
         self.resolution = (1632,1216)
 
         self.framerate = dict()
-        self.framerate[LC.RED] = Fraction(4, 1)
-        self.framerate[LC.NIR] = Fraction(10, 4)
-        self.framerate[LC.WHITE] = Fraction(10, 3)
+        self.framerate[LC.RED] = Fraction(10, 3)
+        self.framerate[LC.NIR] = Fraction(10, 5)
+        self.framerate[LC.WHITE] = Fraction(10, 4)
+        self.framerate[LC.GROWTH] = 30
 
         self.shutter_speed = dict()
         self.shutter_speed[LC.RED] = 300000
         self.shutter_speed[LC.NIR] = 500000
-        self.shutter_speed[LC.WHITE] = 350000
+        self.shutter_speed[LC.WHITE] = 400000
+        self.shutter_speed[LC.GROWTH] = 4000
+
+        self.ground_plane = dict()
+        self.ground_plane["x_min"] = 428
+        self.ground_plane["x_max"] = 1240
+        self.ground_plane["y_min"] = 68
+        self.ground_plane["y_max"] = 880
+
+        self.crop = dict()
+        self.crop["x_min"] = 0
+        self.crop["x_max"] = self.resolution[0]
+        self.crop["y_min"] = 0
+        self.crop["y_max"] = self.resolution[1]
+
+        self.wb = dict()
+        self.wb[LC.RED] = dict()
+        self.wb[LC.RED]["r"] = 1.0
+        self.wb[LC.RED]["b"] = 1.0
+        self.wb[LC.GROWTH] = dict()
+        self.wb[LC.GROWTH]["r"] = 0.4
+        self.wb[LC.GROWTH]["b"] = 0.575
 
         self.exposure_mode = "off"
         self.exposure_compensation = 0
 
 
 class PI_CAM_NOIR_V21(CAMERA):
-    def __init__(self, *args, light_control, light_channels, settings, **kwargs):
+    def __init__(self, *args, light_control = light_control_dummy, light_channels = [LC.GROWTH], settings, **kwargs):
         """
         Initialize an object that contains the visible routines.
         Link the pi and gpio pins necessary and provide a function that controls the growth lighting.
 
         :param light_control: function that allows control over the lighting. Parameters are the channel to control and either a 0 or 1 for off and on respectively
         :param light_channels: list containing allowable light channels
+        :param settings: reference to one of the settings object contained in this file. These settings are used to control shutter speeds, resolutions, crops etc.
         """
 
         # set up the camera super class
         super().__init__(light_control = light_control, light_channels = light_channels)
-
-        # check and set up the necessary directories
-        check_directories()
 
         # give the camera a unique ID per brand/kind/etc, software uses this ID to determine whether the
         # camera is calibrated or not
@@ -79,6 +98,7 @@ class PI_CAM_NOIR_V21(CAMERA):
             d_print("No suitable camera configuration file found!", 3)
             self.CALIBRATED = False
 
+        # bind the settings to the camera object
         self.settings = settings
 
         # set up ndvi routines
@@ -112,10 +132,28 @@ class PI_CAM_NOIR_V21(CAMERA):
                 time.sleep(30)
 
                 sensor.exposure_mode = self.settings.exposure_mode
-                self.config["d2d"][channel]["analog-gain"] = float(sensor.analog_gain)
-                self.config["d2d"][channel]["digital-gain"] = float(sensor.digital_gain)
 
-                d_print("Saved ag: {} and dg: {} for channel {}".format(sensor.analog_gain, sensor.digital_gain, channel), 1)
+                # there is some non-linearity in the camera for higher pixel values when the gain gets large.
+                # currently, we fix this by limiting the gain to a maximum of 1.5 times the calibration gain.
+                # images will be a bit underexposed, but this can be expected for the red images anyway, since they
+                #     tend to be dark.
+                ag = float(sensor.analog_gain)
+                dg = float(sensor.digital_gain)
+
+                if self.config["ff"]["gain"][channel]*1.5 < ag and (channel == LC.RED or channel == LC.NIR):
+                    self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*1.5
+                elif self.config["ff"]["gain"][channel]*0.67 > ag and (channel == LC.RED or channel == LC.NIR):
+                    self.config["d2d"][channel]["analog-gain"] = self.config["ff"]["gain"][channel]*0.67
+                else:
+                    self.config["d2d"][channel]["analog-gain"] = ag
+
+                if dg > 1.7 and (channel == LC.RED or channel == LC.NIR):
+                    self.config["d2d"][channel]["digital-gain"] = 1.7
+                else:
+                    self.config["d2d"][channel]["digital-gain"] = dg
+
+                d_print("Measured ag: {} and dg: {} for channel {}".format(ag, dg), 1)
+                d_print("Saved ag: {} and dg: {} for channel {}".format(self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"]), 1)
 
             # turn the light off
             self.light_control(channel, 0)
@@ -129,7 +167,7 @@ class PI_CAM_NOIR_V21(CAMERA):
 
     def capture(self, channel: LC):
         """
-        Function that captures an image. Uses raspistill in a separate terminal process to take the picture. This is faster due to the possibility to manually set the gains of the camera, something that is not possible in picamera 1.13 (but will probably be in version 1.14 or 1.15).
+        Function that captures an image. Uses raspistill in a separate terminal process to take the picture. This is faster (about 4-5 seconds to take an image on average) due to the possibility to manually set the gains of the camera, something that is not possible in picamera 1.13 (but will probably be in version 1.14 or 1.15).
 
         :param channel: channel of light in which the photo is taken, used for white balance and gain values
         :return: 8 bit rgb array containing the image
@@ -148,18 +186,20 @@ class PI_CAM_NOIR_V21(CAMERA):
         path_to_dark = os.getcwd() + "/cam/tmp/dark.bmp"
         gain = self.config["d2d"][channel]["analog-gain"] * self.config["d2d"][channel]["digital-gain"]
 
-        photo_cmd = "raspistill -e bmp -w {} -h {} -ss {} -t 1000 -awb off -awbg {},{} -ex off -ag {} -dg {} -set".format(self.settings.resolution[0], self.settings.resolution[1], self.settings.shutter_speed[channel], self.config["wb"][channel]["r"], self.config["wb"][channel]["b"], self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"])
+        photo_cmd = "raspistill -e bmp -w {} -h {} -ss {} -t 1000 -awb off -awbg {},{} -ag {} -dg {} -set".format(self.settings.resolution[0], self.settings.resolution[1], self.settings.shutter_speed[channel], self.config["wb"][channel]["r"], self.config["wb"][channel]["b"], self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"])
 
         # run command and take bright and dark picture
-        subprocess.run(photo_cmd + " -o {}".format(path_to_bright), shell=True, timeout=10)
+        subprocess.run(photo_cmd + " -o {}".format(path_to_bright), shell=True, timeout=20)
+        print(photo_cmd + " -o {}".format(path_to_bright))
         self.light_control(channel, 0)
-        subprocess.run(photo_cmd + " -o {}".format(path_to_dark), shell=True, timeout=10)
+        subprocess.run(photo_cmd + " -o {}".format(path_to_dark), shell=True, timeout=20)
 
         # load the images from file, perform dark frame subtraction and return the array
         bright = Image.open(path_to_bright)
         rgb = np.array(bright)
-        dark = Image.open(path_to_dark)
-        rgb = cv2.subtract(rgb, np.array(dark))
+        if channel != LC.GROWTH:
+            dark = Image.open(path_to_dark)
+            rgb = cv2.subtract(rgb, np.array(dark))
 
         # if the time since last update is larger than a day, update the gains after the photo
         if time.time() - self.config["d2d"]["timestamp"] > 3600*24:
@@ -223,13 +263,13 @@ class PI_CAM_NOIR_V21(CAMERA):
                             else:
                                 bg += 0.025
 
-                        path_to_img = "{}/cam/tst/{}{}.jpg".format(os.getcwd(), "wb", i)
-                        imwrite(path_to_img, rgb)
-
                         sensor.awb_gains = (rg, bg)
+        elif channel == LC.GROWTH:
+            rg = self.settings.wb[LC.GROWTH]["r"]
+            bg = self.settings.wb[LC.GROWTH]["b"]
         else:
-            rg = 1.0
-            bg = 1.0
+            rg = self.settings.wb[LC.RED]["r"]
+            bg = self.settings.wb[LC.RED]["b"]
 
         # turn off channel light
         self.light_control(channel, 0)
@@ -243,15 +283,18 @@ class PI_CAM_NOIR_V21(CAMERA):
 
     def setup_d2d(self):
         """
-        Function that gets called at the end of the calibration process. It allows cameras to perform other steps next to the prescribed steps from the camera prototype.
+        Function that sets up the fields required for the update function to work. These are saved in explicit dicts so that the chances of errors are minimal.
         """
 
         self.config["d2d"] = dict()
 
         self.config["d2d"][LC.WHITE] = dict()
+        self.config["d2d"][LC.GROWTH] = dict()
 
         self.config["d2d"][LC.WHITE]["analog-gain"] = 1.0
         self.config["d2d"][LC.WHITE]["digital-gain"] = 1.0
+        self.config["d2d"][LC.GROWTH]["analog-gain"] = 1.0
+        self.config["d2d"][LC.GROWTH]["digital-gain"] = 1.0
 
         if self.NDVI_CAPABLE:
             self.config["d2d"][LC.RED] = dict()

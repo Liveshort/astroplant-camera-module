@@ -6,10 +6,10 @@ if __name__ == "__main__":
     n = 100
 
     # kit parameters
-    h = 0.63#0.63
+    h = 0.31#0.63
     w = 0.41
     r = w/2
-    R = 0.71
+    R = 0.95
 
     # initial brightness of perfect diffuse light source in the middle of the top plate
     I0 = 1.0

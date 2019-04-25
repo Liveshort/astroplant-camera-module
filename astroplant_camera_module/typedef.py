@@ -4,7 +4,9 @@ class CC(object):
     """
 
     # regular photo (visible spectrum: ~400-700 nm, color balanced)
-    REGULAR_PHOTO = "REGULAR_PHOTO"
+    WHITE_PHOTO = "WHITE_PHOTO"
+    # photo using growth lighting: as balanced as possible, colors will probably be off
+    GROWTH_PHOTO = "GROWTH_PHOTO"
     # NDVI photo (NIR vs red spectrum: ~850 nm vs ~630 nm)
     NDVI_PHOTO = "NDVI_PHOTO"
     # NIR photo (NIR spectrum: ~850 nm)
@@ -29,3 +31,5 @@ class LC(object):
     WHITE = "white"
     RED = "red"
     NIR = "nir"
+
+    GROWTH = "growth"

@@ -1,6 +1,10 @@
 import os
 
 def check_directories():
+    """
+    Sets up the necessary directories for the camera to work. Everything is created relative to the working directory.
+    """
+
     wd = os.getcwd()
     camdir = wd + "/cam"
 
@@ -12,9 +16,6 @@ def check_directories():
 
     if not os.path.isdir(camdir + "/img"):
         os.mkdir(camdir + "/img")
-
-    if not os.path.isdir(camdir + "/tst"):
-        os.mkdir(camdir + "/tst")
 
     if not os.path.isdir(camdir + "/res"):
         os.mkdir(camdir + "/res")

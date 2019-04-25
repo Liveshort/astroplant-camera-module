@@ -1,6 +1,6 @@
 """
-Implementation for the Pi Camera Noir V2.1
-Should be similar for other camera's connected to the CSI interface on the Raspberry Pi
+Implementation of the camera parent object.
+General mechanics are implemented in this file.
 """
 
 import time
@@ -15,16 +15,15 @@ from imageio import imwrite
 
 from astroplant_camera_module.misc.debug_print import d_print
 from astroplant_camera_module.typedef import CC, LC
+from astroplant_camera_module.setup import check_directories
 
 class CAMERA(object):
     def __init__(self, *args, light_control, light_channels, **kwargs):
         """
-        Initialize an object that contains the visible routines.
-        Link the pi and gpio pins necessary and provide a function that controls the growth lighting.
+        Initilize the parent camera object. Most of the routines are specified here, as well as the command tree of what to do with commands received from the user. Initializes some variables to a dummy state, which need to be overwritten explicitly by the child camera.
 
-        :param pi: link to the pi that controls the lighting
-        :param light_pins: dict containing the pin number of the white, red and green pin
-        :param growth_light_control: function that can turn the growth lighting on or off
+        :param light_control: function that allows control over the lighting. Parameters are the channel to control and either a 0 or 1 for off and on respectively
+        :param light_channels: list containing allowable light channels
         """
 
         self.CAM_ID = 0
@@ -35,12 +34,23 @@ class CAMERA(object):
         self.light_control = light_control
         self.light_channels = light_channels
 
+        # check and set up the necessary directories
+        check_directories()
+
 
     def do(self, command: CC):
-        if command == CC.REGULAR_PHOTO and LC.WHITE in self.light_channels and self.CALIBRATED:
+        """
+        Function that directs the commands from the user to the right place. Does some preliminary checks to see if actions are allowed in the current state of the camera (uncalibrated etc.). Throws an error on the command line if actions are illegal.
+
+        :param command: (C)amera (C)ommand, what the user wants to do.
+        """
+
+        if command == CC.WHITE_PHOTO and LC.WHITE in self.light_channels and self.CALIBRATED:
             return self.photo(LC.WHITE)
         elif command == CC.NDVI_PHOTO and self.NDVI_CAPABLE and self.CALIBRATED:
             return self.ndvi.ndvi_photo()
+        elif command == CC.GROWTH_PHOTO and LC.GROWTH in self.light_channels and self.CALIBRATED:
+            return self.photo(LC.GROWTH)
         elif command == CC.NDVI and self.NDVI_CAPABLE and self.CALIBRATED:
             return self.ndvi.ndvi()
         elif command == CC.NIR_PHOTO and LC.NIR in self.light_channels and self.CALIBRATED:
@@ -91,6 +101,7 @@ class CAMERA(object):
         """
         Make a photo with the specified light channel and save the image to disk
 
+        :param channel: channel of light a photo needs to be taken from
         :return: path to the photo taken
         """
 
@@ -98,12 +109,12 @@ class CAMERA(object):
         rgb, _ = self.capture(channel)
 
         # crop the sensor readout
-        rgb = rgb[self.config["y_min"]:self.config["y_max"], self.config["x_min"]:self.config["x_max"], :]
+        rgb = rgb[self.settings.crop["y_min"]:self.settings.crop["y_max"], self.settings.crop["x_min"]:self.settings.crop["x_max"], :]
 
         # write image to file using imageio's imwrite
         d_print("Writing to file...", 1)
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        path_to_img = "{}/cam/img/{}.tif".format(os.getcwd(), channel)
+        path_to_img = "{}/cam/img/{}.jpg".format(os.getcwd(), channel)
         imwrite(path_to_img, rgb)
 
         return(path_to_img)
@@ -128,14 +139,13 @@ class CAMERA(object):
 
         d_print("Starting calibration...", 1)
 
-        # first adjust the crop
-        self.calibrate_crop()
         # calibrate all white balances
         for channel in self.light_channels:
             self.calibrate_white_balance(channel)
         # calibrate the gains
         for channel in self.light_channels:
-            self.calibrate_flatfield_gains(channel)
+            if channel == LC.RED or channel == LC.NIR:
+                self.calibrate_flatfield_gains(channel)
 
         # write the configuration to file
         self.save_config_to_file()
@@ -143,16 +153,13 @@ class CAMERA(object):
         self.CALIBRATED = True
 
 
-    def calibrate_crop(self):
-        self.config["x_min"] = 0
-        self.config["x_max"] = 1632
-        self.config["y_min"] = 0
-        self.config["y_max"] = 1216
-
-        d_print("Crop configuration complete.", 1)
-
-
     def calibrate_flatfield_gains(self, channel: LC):
+        """
+        Calibrate the flatfield of the given channel. A reference value is needed for calculations of for example NDVI. This function computes the average value of the flatfield and saves it with the accompanying gain.
+
+        :param channel: channel of light that requires flatfield calibration
+        """
+
         # capture a photo of the appropriate channel
         rgb, gain = self.capture(channel)
 
@@ -160,18 +167,13 @@ class CAMERA(object):
         self.config["ff"]["gain"][channel] = float(gain)
 
         # cut image to size
-        rgb = rgb[self.config["y_min"]:self.config["y_max"], self.config["x_min"]:self.config["x_max"], :]
+        rgb = rgb[self.settings.crop["y_min"]:self.settings.crop["y_max"], self.settings.crop["x_min"]:self.settings.crop["x_max"], :]
 
         # turn rgb into hsv and extract the v channel as the mask
         v = self.extract_value_from_rgb(channel, rgb)
         # get the average intensity of the light and save for flatfielding
-        self.config["ff"]["value"][channel] = np.mean(v[68:880,428:1240])
-        d_print("{} ff std: ".format(channel) + str(np.std(v[68:880,428:1240])), 1)
-
-        # save the value part np array to file so it can be loaded later
-        path_to_field = "{}/cam/cfg/{}.field".format(os.getcwd(), channel)
-        with open(path_to_field, 'wb') as f:
-            np.save(f, v)
+        self.config["ff"]["value"][channel] = np.mean(v[self.settings.ground_plane["y_min"]:self.settings.ground_plane["y_max"], self.settings.ground_plane["x_min"]:self.settings.ground_plane["x_max"]])
+        d_print("{} ff std: ".format(channel) + str(np.std(v[self.settings.ground_plane["y_min"]:self.settings.ground_plane["y_max"], self.settings.ground_plane["x_min"]:self.settings.ground_plane["x_max"]])), 1)
 
         # write image to file using imageio's imwrite
         path_to_img = "{}/cam/cfg/{}_mask.jpg".format(os.getcwd(), channel)
@@ -180,7 +182,15 @@ class CAMERA(object):
 
 
     def extract_value_from_rgb(self, channel: LC, rgb):
-        if channel == LC.NIR or channel == LC.WHITE:
+        """
+        Subfunction used to extract the right value matrix from the rgb image.
+
+        :param channel: channel of light of which the value matrix is needed
+        :param rgb: rgb matrix (original photo)
+        :return: value matrix
+        """
+
+        if channel == LC.NIR:
             # turn rgb into hsv and extract the v channel as the mask
             hsv = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)
             v = hsv[:,:,2]
@@ -206,7 +216,8 @@ class CAMERA(object):
         print("    CALIBRATED:    {}".format(self.CALIBRATED))
 
         print("\nConnections:")
-        print("    light control:    {}".format(self.light_control))
+        print("    light control:   {}".format(self.light_control))
         print("    light channels:  {}".format(self.light_channels))
+        print("    settings:        {}".format(self.settings))
 
         print("")

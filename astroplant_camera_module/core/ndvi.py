@@ -27,8 +27,7 @@ def truncate_colormap(cmap, minval=0.0, maxval=1.0, n=100):
 class NDVI(object):
     def __init__(self, *args, camera, **kwargs):
         """
-        Initialize an object that contains the visible routines.
-        Link the pi and gpio pins necessary and provide a function that controls the growth lighting.
+        Initialize an object that contains the NDVI routines. Since this module is an extra module that can be loaded on top of a simple camera that just takes pictures, it is in a seperate file.
 
         :param camera: link to the camera object controlling these subroutines
         """
@@ -38,7 +37,7 @@ class NDVI(object):
 
     def ndvi_matrix(self):
         """
-        Internal function that makes the ndvi matrix.
+        Internal function that makes the ndvi matrix from a red and a nir image. Pixel values are compared to the saved values from the calibration earlier in the process.
 
         :return: ndvi matrix
         """
@@ -48,7 +47,7 @@ class NDVI(object):
         rgb_nir, gain_nir = self.camera.capture(LC.NIR)
 
         # crop the sensor readout
-        rgb_r = rgb_r[self.camera.config["y_min"]:self.camera.config["y_max"], self.camera.config["x_min"]:self.camera.config["x_max"], :]
+        rgb_r = rgb_r[self.camera.settings.crop["y_min"]:self.camera.settings.crop["y_max"], self.camera.settings.crop["x_min"]:self.camera.settings.crop["x_max"], :]
         r = rgb_r[:,:,0]
 
         # apply flatfield mask
@@ -56,7 +55,7 @@ class NDVI(object):
         Rr = 0.8*self.camera.config["ff"]["gain"]["red"]/gain_r*np.divide(r, mask)
 
         # crop the sensor readout
-        rgb_nir = rgb_nir[self.camera.config["y_min"]:self.camera.config["y_max"], self.camera.config["x_min"]:self.camera.config["x_max"], :]
+        rgb_nir = rgb_nir[self.camera.settings.crop["y_min"]:self.camera.settings.crop["y_max"], self.camera.settings.crop["x_min"]:self.camera.settings.crop["x_max"], :]
         hsv = cv2.cvtColor(rgb_nir, cv2.COLOR_RGB2HSV)
         v = hsv[:,:,2]
 
@@ -64,34 +63,26 @@ class NDVI(object):
         mask = self.camera.config["ff"]["value"]["nir"]
         Rnir = 0.8*self.camera.config["ff"]["gain"]["nir"]/gain_nir*np.divide(v, mask)
 
-        # save the value part np array to file so it can be loaded later
-        path_to_field = "{}/cam/res/{}.field".format(os.getcwd(), "red")
-        with open(path_to_field, 'wb') as f:
-            np.save(f, r)
-        path_to_field = "{}/cam/res/{}.field".format(os.getcwd(), "nir")
-        with open(path_to_field, 'wb') as f:
-            np.save(f, v)
-
         # write image to file using imageio's imwrite
-        path_to_img = "{}/cam/img/{}.jpg".format(os.getcwd(), "red_raw")
+        path_to_img = "{}/cam/tmp/{}.jpg".format(os.getcwd(), "red_raw")
         imwrite(path_to_img, rgb_r.astype(np.uint8))
 
-        path_to_img = "{}/cam/img/{}.jpg".format(os.getcwd(), "nir_raw")
+        path_to_img = "{}/cam/tmp/{}.jpg".format(os.getcwd(), "nir_raw")
         imwrite(path_to_img, rgb_nir.astype(np.uint8))
 
         d_print("\tred max: " + str(np.amax(Rr)), 1)
         d_print("\tnir max: " + str(np.amax(Rnir)), 1)
 
-        path_to_img = "{}/cam/img/{}.jpg".format(os.getcwd(), "red")
+        path_to_img = "{}/cam/tmp/{}.jpg".format(os.getcwd(), "red")
         imwrite(path_to_img, np.uint8(255*Rr/np.amax(Rr)))
 
-        path_to_img = "{}/cam/img/{}.jpg".format(os.getcwd(), "nir")
+        path_to_img = "{}/cam/tmp/{}.jpg".format(os.getcwd(), "nir")
         imwrite(path_to_img, np.uint8(255*Rnir/np.amax(Rnir)))
 
         # finally calculate ndvi (with some failsafes)
         num = Rnir - Rr
         den = Rnir + Rr
-        num[den < 0.05] = 0.0
+        num[np.logical_and(den < 0.05, den > -0.05)] = 0.0
         den[den < 0.05] = 1.0
         ndvi = np.divide(num, den)
 
@@ -102,13 +93,16 @@ class NDVI(object):
         """
         Make a photo in the nir and the red spectrum and overlay to obtain ndvi.
 
-        :return: (path to the ndvi image, average ndvi value for >0.2)
+        :return: (path to the ndvi image, average ndvi value for >0.25 (iff the #pixels is larger than 2 percent of the total))
         """
 
         # get the ndvi matrix
         ndvi_matrix = self.ndvi_matrix()
         ndvi_matrix = np.clip(ndvi_matrix, -1.0, 1.0)
-        ndvi = np.mean(ndvi_matrix[ndvi_matrix > 0.2])
+        if np.count_nonzero(ndvi_matrix > 0.25) > 0.02*np.size(ndvi_matrix):
+            ndvi = np.mean(ndvi_matrix[ndvi_matrix > 0.25])
+        else:
+            ndvi = 0
 
         rescaled = np.uint8(np.round(127.5*(ndvi_matrix + 1.0)))
 
@@ -117,7 +111,7 @@ class NDVI(object):
         Polariks_cmap = truncate_colormap(cmap, 0, 0.6)
 
         ndvi_plot = np.copy(ndvi_matrix)
-        ndvi_plot[ndvi_plot<0] = np.nan
+        ndvi_plot[ndvi_plot<0.25] = np.nan
 
         path_to_img = "{}/cam/img/{}{}.jpg".format(os.getcwd(), "ndvi", 2)
         plt.figure(figsize=(12,10))
