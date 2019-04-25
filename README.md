@@ -94,7 +94,9 @@ class CC(object):
     """
 
     # regular photo (visible spectrum: ~400-700 nm, color balanced)
-    REGULAR_PHOTO = "REGULAR_PHOTO"
+    WHITE_PHOTO = "WHITE_PHOTO"
+    # photo using growth lighting: as balanced as possible, colors will probably be off
+    GROWTH_PHOTO = "GROWTH_PHOTO"
     # NDVI photo (NIR vs red spectrum: ~850 nm vs ~630 nm)
     NDVI_PHOTO = "NDVI_PHOTO"
     # NIR photo (NIR spectrum: ~850 nm)
@@ -114,7 +116,8 @@ Commands can be called as follows:
 ```python3
 cam.do(CC.CALIBRATE)
 cam.do(CC.UPDATE)
-print(cam.do(CC.REGULAR_PHOTO))
+print(cam.do(CC.WHITE_PHOTO))
+print(cam.do(CC.GROWTH_PHOTO))
 print(cam.do(CC.NDVI_PHOTO))
 ```
 To check the current camera state, run:
