@@ -85,6 +85,10 @@ Finally, you can make a camera object by creating an instance of the camera you 
 ```python3
 cam = PI_CAM_NOIR_V21(light_control = light_control, light_channels = light_channels, settings = settings)
 ```
+Due to the relatively memory intensive nature of the module, it is recommended that the camera object is destroyed every time after it is finished processing the photos / values. Generally, the frequency of taking the photos will be so low (2-4 times a day) that this will not lead to a significant increase in latency. This can be done by calling the following after all commands have been processed:
+```python3
+del cam
+```
 ## Available commands
 All available commands are listed in the astroplant_camera_module/typedef.py file, under the CC object:
 ```python3
@@ -102,7 +106,7 @@ class CC(object):
     # NIR photo (NIR spectrum: ~850 nm)
     NIR_PHOTO = "NIR_PHOTO"
     # leaf mask (should produce a black/white mask that masks out the leaves)
-    LEAF_MASK = "LEAF_MASK"
+    #LEAF_MASK = "LEAF_MASK"
 
     # averaged ndvi value of the plant (all material with ndvi > 0.2)
     NDVI = "NDVI"
@@ -123,4 +127,27 @@ print(cam.do(CC.NDVI_PHOTO))
 To check the current camera state, run:
 ```python3
 cam.state()
+```
+## Return values
+Values and photos are returned to the user in a specific standard format, contained in a Python dict. This way the user can always see if an error was encountered, and whether the return contains images or values. The encountered_error, contains_photo, contains_value and timestamp field are always set. Returns from functions will look, depending on the command send, as follows:
+```python3
+{
+    'photo_kind':
+        [
+            'raw NDVI',
+            'processed NDVI'
+        ],
+    'encountered_error': False,
+    'value_kind': ['NDVI'],
+    'value_error': [0.0],
+    'timestamp': '20190606-140728',
+    'contains_value': True,
+    'contains_photo': True,
+    'value': [0.3598392680470938],
+    'photo_path':
+        [
+            '.../astroplant-camera-module/tests/cam/img/ndvi1_20190606-140728.tif',
+            '.../astroplant-camera-module/tests/cam/img/ndvi2_20190606-140728.jpg'
+        ]
+}
 ```

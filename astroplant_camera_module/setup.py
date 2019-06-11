@@ -1,12 +1,11 @@
 import os
 
-def check_directories():
+def check_directories(root_directory):
     """
-    Sets up the necessary directories for the camera to work. Everything is created relative to the working directory.
+    Sets up the necessary directories for the camera to work. Everything is created relative to the root directory supplied by the user.
     """
 
-    wd = os.getcwd()
-    camdir = wd + "/cam"
+    camdir = root_directory + "/cam"
 
     if not os.path.isdir(camdir):
         os.mkdir(camdir)

@@ -1,5 +1,5 @@
 """
-Implementation for the Pi Camera Noir V2.1
+Implementation for the Pi Camera V2.1
 Should be similar for other camera's connected to the CSI interface on the Raspberry Pi
 """
 
@@ -10,11 +10,13 @@ import os
 import cv2
 import numpy as np
 import subprocess
+import multiprocessing as mp
 
 from fractions import Fraction
 from PIL import Image
 
 from astroplant_camera_module.core.camera import CAMERA
+from astroplant_camera_module.core.ndvi import NDVI
 from astroplant_camera_module.misc.debug_print import d_print
 from astroplant_camera_module.typedef import LC
 from astroplant_camera_module.misc.helper import light_control_dummy
@@ -33,10 +35,10 @@ class SETTINGS_V5(object):
         self.shutter_speed[LC.GROWTH] = 4000
 
         self.ground_plane = dict()
-        self.ground_plane["x_min"] = 428
-        self.ground_plane["x_max"] = 1240
-        self.ground_plane["y_min"] = 68
-        self.ground_plane["y_max"] = 880
+        self.ground_plane["x_min"] = 445
+        self.ground_plane["x_max"] = 1265
+        self.ground_plane["y_min"] = 40
+        self.ground_plane["y_max"] = 860
 
         self.crop = dict()
         self.crop["x_min"] = 0
@@ -55,8 +57,8 @@ class SETTINGS_V5(object):
         self.allowed_channels = [LC.WHITE, LC.GROWTH]
 
 
-class PI_CAM_NOIR_V21(CAMERA):
-    def __init__(self, *args, light_control = light_control_dummy, light_channels = [LC.GROWTH], settings, **kwargs):
+class PI_CAM_V21(CAMERA):
+    def __init__(self, *args, light_control = light_control_dummy, light_channels = [LC.GROWTH], settings, working_directory = os.getcwd(), **kwargs):
         """
         Initialize an object that contains the visible routines.
         Link the pi and gpio pins necessary and provide a function that controls the growth lighting.
@@ -67,7 +69,7 @@ class PI_CAM_NOIR_V21(CAMERA):
         """
 
         # set up the camera super class
-        super().__init__(light_control = light_control)
+        super().__init__(light_control = light_control, working_directory = working_directory)
 
         # give the camera a unique ID per brand/kind/etc, software uses this ID to determine whether the
         # camera is calibrated or not
@@ -96,6 +98,12 @@ class PI_CAM_NOIR_V21(CAMERA):
         except (EnvironmentError, ValueError):
             d_print("No suitable camera configuration file found!", 3)
             self.CALIBRATED = False
+
+        # set multiprocessing to spawn (so NOT fork)
+        try:
+            mp.set_start_method('spawn')
+        except RuntimeError:
+            pass
 
 
     def update(self):
@@ -126,9 +134,14 @@ class PI_CAM_NOIR_V21(CAMERA):
 
                 sensor.exposure_mode = self.settings.exposure_mode
 
-                self.config["d2d"][channel]["analog-gain"] = float(sensor.analog_gain)
-                self.config["d2d"][channel]["digital-gain"] = float(sensor.digital_gain)
+                # set the analog and digital gain
+                ag = float(sensor.analog_gain)
+                dg = float(sensor.digital_gain)
 
+                self.config["d2d"][channel]["digital-gain"] = dg
+                self.config["d2d"][channel]["analog-gain"] = ag
+
+                d_print("Measured ag: {} and dg: {} for channel {}".format(ag, dg, channel), 1)
                 d_print("Saved ag: {} and dg: {} for channel {}".format(self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"], channel), 1)
 
             # turn the light off
@@ -162,13 +175,27 @@ class PI_CAM_NOIR_V21(CAMERA):
         path_to_dark = os.getcwd() + "/cam/tmp/dark.bmp"
         gain = self.config["d2d"][channel]["analog-gain"] * self.config["d2d"][channel]["digital-gain"]
 
-        photo_cmd = "raspistill -e bmp -w {} -h {} -ss {} -t 1000 -awb off -awbg {},{} -ag {} -dg {} -set".format(self.settings.resolution[0], self.settings.resolution[1], self.settings.shutter_speed[channel], self.config["wb"][channel]["r"], self.config["wb"][channel]["b"], self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"])
+        photo_cmd = "raspistill -e bmp -w {} -h {} -ss {} -t 1000 -awb off -awbg {},{} -ag {} -dg {}".format(self.settings.resolution[0], self.settings.resolution[1], self.settings.shutter_speed[channel], self.config["wb"][channel]["r"], self.config["wb"][channel]["b"], self.config["d2d"][channel]["analog-gain"], self.config["d2d"][channel]["digital-gain"])
 
         # run command and take bright and dark picture
-        subprocess.run(photo_cmd + " -o {}".format(path_to_bright), shell=True, timeout=20)
-        print(photo_cmd + " -o {}".format(path_to_bright))
+        # start the bright image capture by spawning a clean process and executing the command, then waiting for the q
+        p = mp.Process(target=photo_worker, args=(photo_cmd + " -o {}".format(path_to_bright),))
+        try:
+            p.start()
+            p.join()
+        except OSError:
+            d_print("Could not start child process, out of memory", 3)
+            return (None, 0)
+        # turn off the light
         self.light_control(channel, 0)
-        subprocess.run(photo_cmd + " -o {}".format(path_to_dark), shell=True, timeout=20)
+        # start the dark image capture by spawning a clean process and executing the command, then waiting for the q
+        p = mp.Process(target=photo_worker, args=(photo_cmd + " -o {}".format(path_to_dark),))
+        try:
+            p.start()
+            p.join()
+        except OSError:
+            d_print("Could not start child process, out of memory", 3)
+            return (None, 0)
 
         # load the images from file, perform dark frame subtraction and return the array
         bright = Image.open(path_to_bright)
@@ -240,7 +267,7 @@ class PI_CAM_NOIR_V21(CAMERA):
                                 bg += 0.025
 
                         sensor.awb_gains = (rg, bg)
-        elif channel == LC.GROWTH:
+        else:
             rg = self.settings.wb[LC.GROWTH]["r"]
             bg = self.settings.wb[LC.GROWTH]["b"]
 
@@ -272,3 +299,14 @@ class PI_CAM_NOIR_V21(CAMERA):
         self.config["d2d"]["timestamp"] = time.time()
 
         self.save_config_to_file()
+
+
+def photo_worker(cmd):
+    """
+    Function that executes a photo command. Because of the implementation of subprocess (which forks the entire process) a new thread is first made with a way smaller footprint. This ensures that memory usage stays as low as possible and the program doesn't crash when memory gets scarce.
+
+    :param q: Queue in which a signal is posted when the photo is done
+    :param cmd: Photo command to be executed
+    """
+
+    subprocess.run(cmd, shell=True, timeout=20)

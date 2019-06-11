@@ -18,7 +18,7 @@ from astroplant_camera_module.typedef import CC, LC
 from astroplant_camera_module.setup import check_directories
 
 class CAMERA(object):
-    def __init__(self, *args, light_control, **kwargs):
+    def __init__(self, *args, light_control, working_directory, **kwargs):
         """
         Initilize the parent camera object. Most of the routines are specified here, as well as the command tree of what to do with commands received from the user. Initializes some variables to a dummy state, which need to be overwritten explicitly by the child camera.
 
@@ -32,9 +32,10 @@ class CAMERA(object):
         self.CALIBRATED = False
 
         self.light_control = light_control
+        self.working_directory = working_directory
 
         # check and set up the necessary directories
-        check_directories()
+        check_directories(self.working_directory)
 
 
     def do(self, command: CC):
@@ -83,7 +84,7 @@ class CAMERA(object):
         Save camera configuration to file.
         """
 
-        with open("{}/cam/cfg/config.json".format(os.getcwd()), 'w') as f:
+        with open("{}/cam/cfg/config.json".format(self.working_directory), 'w') as f:
             json.dump(self.config, f, indent=4, sort_keys=True)
 
 
@@ -92,7 +93,7 @@ class CAMERA(object):
         Load camera configuration from file.
         """
 
-        with open("{}/cam/cfg/config.json".format(os.getcwd()), 'r') as f:
+        with open("{}/cam/cfg/config.json".format(self.working_directory), 'r') as f:
             self.config = json.load(f)
 
 
@@ -107,16 +108,34 @@ class CAMERA(object):
         # capture a photo of the appropriate channel
         rgb, _ = self.capture(channel)
 
+        # catch error
+        if rgb is None:
+            res = dict()
+            res["contains_photo"] = False
+            res["contains_value"] = False
+            res["encountered_error"] = True
+            res["timestamp"] = curr_time
+
+            return res
+
         # crop the sensor readout
         rgb = rgb[self.settings.crop["y_min"]:self.settings.crop["y_max"], self.settings.crop["x_min"]:self.settings.crop["x_max"], :]
 
         # write image to file using imageio's imwrite
         d_print("Writing to file...", 1)
         curr_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        path_to_img = "{}/cam/img/{}.jpg".format(os.getcwd(), channel)
+        path_to_img = "{}/cam/img/{}_{}.jpg".format(self.working_directory, channel, curr_time)
         imwrite(path_to_img, rgb)
 
-        return(path_to_img)
+        res = dict()
+        res["contains_photo"] = True
+        res["contains_value"] = False
+        res["encountered_error"] = False
+        res["timestamp"] = curr_time
+        res["photo_path"] = [path_to_img]
+        res["photo_kind"] = [channel]
+
+        return(res)
 
 
     def calibrate(self):
@@ -177,7 +196,7 @@ class CAMERA(object):
         d_print("{} ff std: ".format(channel) + str(np.std(v[self.settings.ground_plane["y_min"]:self.settings.ground_plane["y_max"], self.settings.ground_plane["x_min"]:self.settings.ground_plane["x_max"]])), 1)
 
         # write image to file using imageio's imwrite
-        path_to_img = "{}/cam/cfg/{}_mask.jpg".format(os.getcwd(), channel)
+        path_to_img = "{}/cam/cfg/{}_mask.jpg".format(self.working_directory, channel)
         d_print("Writing to file...", 1)
         imwrite(path_to_img, rgb.astype(np.uint8))
 

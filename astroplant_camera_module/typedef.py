@@ -12,7 +12,7 @@ class CC(object):
     # NIR photo (NIR spectrum: ~850 nm)
     NIR_PHOTO = "NIR_PHOTO"
     # leaf mask (should produce a black/white mask that masks out the leaves)
-    LEAF_MASK = "LEAF_MASK"
+    #LEAF_MASK = "LEAF_MASK"
 
     # averaged ndvi value of the plant (all material with ndvi > 0.2)
     NDVI = "NDVI"

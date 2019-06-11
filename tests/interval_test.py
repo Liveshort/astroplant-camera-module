@@ -35,13 +35,21 @@ if __name__ == "__main__":
     settings = SETTINGS_V5()
     wd = os.getcwd()
 
-    cam = PI_CAM_NOIR_V21(light_control = light_control, light_channels = light_channels, settings = settings, working_directory = wd)
-
-    print(cam.CALIBRATED)
     #cam.do(CC.CALIBRATE)
-    cam.do(CC.UPDATE)
-    print(cam.do(CC.WHITE_PHOTO))
-    print(cam.do(CC.NDVI_PHOTO))
-    print(cam.do(CC.GROWTH_PHOTO))
 
-    cam.state()
+    while True:
+        cam = PI_CAM_NOIR_V21(light_control = light_control, light_channels = light_channels, settings = settings, working_directory = wd)
+
+        print("Taking photo...")
+        print(cam.CALIBRATED)
+        cam.do(CC.UPDATE)
+        print(cam.do(CC.WHITE_PHOTO))
+        print(cam.do(CC.NDVI_PHOTO))
+        print(cam.do(CC.GROWTH_PHOTO))
+
+        for i in range(120):
+            print("Sleeping for another {} minutes...".format(120-i))
+            time.sleep(60)
+
+        del cam
+    #cam.state()

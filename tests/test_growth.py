@@ -1,5 +1,6 @@
 import pigpio
 import time
+import os
 
 from astroplant_camera_module.misc.debug_print import d_print
 from astroplant_camera_module.typedef import CC, LC

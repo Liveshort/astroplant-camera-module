@@ -1,0 +1,77 @@
+WHITE CARDBOARD
+
+0 cm:
+DEBUG: ground plane red avg: 0.8158818102340564
+DEBUG: ground plane nir avg: 0.7954600291495137
+DEBUG: nir gain: 1.4190673828125 ff value: 98.15808893515765 ff gain: 1.380615234375
+DEBUG: red gain: 1.74560546875 ff value: 179.69054134443783 ff gain: 1.75390625
+
+10 cm:
+DEBUG: ground plane red avg: 0.9459068720167333
+DEBUG: ground plane nir avg: 0.8874133295660304
+DEBUG: nir gain: 1.34527587890625 ff value: 98.15808893515765 ff gain: 1.380615234375
+DEBUG: red gain: 1.5625 ff value: 179.69054134443783 ff gain: 1.75390625
+
+20 cm:
+DEBUG: ground plane red avg: 1.0944791114799393
+DEBUG: ground plane nir avg: 1.006139163657383
+DEBUG: nir gain: 1.22265625 ff value: 98.15808893515765 ff gain: 1.380615234375
+DEBUG: red gain: 1.42578125 ff value: 179.69054134443783 ff gain: 1.75390625
+
+30 cm:
+DEBUG: ground plane red avg: 1.3501149762447457
+DEBUG: ground plane nir avg: 1.16389057959255
+DEBUG: nir gain: 1.12109375 ff value: 98.15808893515765 ff gain: 1.380615234375
+DEBUG: red gain: 1.1751171875000002 ff value: 179.69054134443783 ff gain: 1.75390625
+
+40 cm:
+DEBUG: ground plane red avg: 1.4379626598204587
+DEBUG: ground plane nir avg: 1.3755959041385746
+DEBUG: nir gain: 1.0 ff value: 98.15808893515765 ff gain: 1.380615234375
+DEBUG: red gain: 1.1751171875000002 ff value: 179.69054134443783 ff gain: 1.75390625
+
+50 cm:
+DEBUG: ground plane red avg: 1.4600706079421868
+DEBUG: ground plane nir avg: 1.4249210535242203
+DEBUG: nir gain: 1.0 ff value: 98.15808893515765 ff gain: 1.380615234375
+DEBUG: red gain: 1.1751171875000002 ff value: 179.69054134443783 ff gain: 1.75390625
+
+
+METALLIC FOIL
+
+0 cm:
+DEBUG: ground plane red avg: 0.8325535668843443
+DEBUG: ground plane nir avg: 0.8050309678951977
+DEBUG: nir gain: 2.04437255859375 ff value: 95.94806216537775 ff gain: 2.0966796875
+DEBUG: red gain: 1.61328125 ff value: 199.1283462224866 ff gain: 1.69921875
+
+10 cm:
+DEBUG: ground plane red avg: 0.8959136705992384
+DEBUG: ground plane nir avg: 0.8808536104148964
+DEBUG: nir gain: 1.9095611572265625 ff value: 95.94806216537775 ff gain: 2.0966796875
+DEBUG: red gain: 1.53515625 ff value: 199.1283462224866 ff gain: 1.69921875
+
+20 cm:
+DEBUG: ground plane red avg: 1.063493724003306
+DEBUG: ground plane nir avg: 1.0170660577290638
+DEBUG: nir gain: 1.7131500244140625 ff value: 95.94806216537775 ff gain: 2.0966796875
+DEBUG: red gain: 1.29296875 ff value: 199.1283462224866 ff gain: 1.69921875
+
+30 cm:
+DEBUG: ground plane red avg: 1.1699606175864992
+DEBUG: ground plane nir avg: 1.1713711420616495
+DEBUG: nir gain: 1.7230448150634765 ff value: 95.94806216537775 ff gain: 2.0966796875
+DEBUG: red gain: 1.203125 ff value: 199.1283462224866 ff gain: 1.69921875
+
+40 cm:
+DEBUG: ground plane red avg: 1.2796111530188758
+DEBUG: ground plane nir avg: 1.3935594574395413
+DEBUG: nir gain: 1.6791455841064453 ff value: 95.94806216537775 ff gain: 2.0966796875
+DEBUG: red gain: 1.1384765625000002 ff value: 199.1283462224866 ff gain: 1.69921875
+
+50 cm:
+DEBUG: ground plane red avg: 1.304559648381873
+DEBUG: ground plane nir avg: 1.7484701210625324
+DEBUG: nir gain: 1.404775390625 ff value: 95.94806216537775 ff gain: 2.0966796875
+DEBUG: red gain: 1.1384765625000002 ff value: 199.1283462224866 ff gain: 1.69921875
+
