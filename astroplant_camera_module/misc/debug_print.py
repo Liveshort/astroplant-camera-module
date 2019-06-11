@@ -1,5 +1,5 @@
 # set this parameter to the level which you still want to print
-SEVERITY = 1
+SEVERITY = 3
 
 # the defined levels
 DBG_PRINT = 1
