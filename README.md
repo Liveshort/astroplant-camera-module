@@ -1,3 +1,8 @@
+# astroplant_camera_module structure
+This repository exists of a couple of different folders. The most important ones are astroplant_camera_module; which is the actual Python code, tests; which contains tests that directly work with the module (so you should be able to run them fairly easily) and docs; which contains some background info, building scheme's, materials, etc. Start in the docs folder if you want more information on this project.
+
+The supporting-scripts folder contains some simulations that are used in the full report (which can be found in the docs folder as well). The results folder contains some photos from various stages of testing, and is purely an indication of what kind of photos you can expect. I'm sure that you will be able to produce better ones when you implement this module in your operational kit. For some longer period testing results, be sure to take a look at the report or the shortened report in the docs folder.
+
 # astroplant_camera_module readme
 Python3 code for the camera module in the astroplant kit. Exposed workings can be found in the module folder. In order to be able to load the module, it has to be added to the PYTHONPATH variable. This can be done permanently by adding the following line (correcting the folder location on your system) to the ~/.bashrc file:
 ```bash
